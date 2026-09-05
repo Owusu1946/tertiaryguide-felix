@@ -20,11 +20,15 @@ export default function DashboardLayout({
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
+    // Paystack return may land on My Forms before email is written to localStorage.
+    // Let that page verify first instead of bouncing to sign-in.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reference")?.trim()) return;
+
     const email = window.localStorage.getItem("tg_user_email");
     if (!email?.trim()) {
-      router.replace(
-        `/signin?redirect=${encodeURIComponent(pathname || "/dashboard/personal-info")}`,
-      );
+      const next = `${pathname || "/dashboard/personal-info"}${window.location.search || ""}`;
+      router.replace(`/signin?redirect=${encodeURIComponent(next)}`);
     }
   }, [pathname, router]);
 

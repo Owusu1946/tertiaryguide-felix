@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { initializePaystackTransaction } from "../../../../../lib/paystack";
 import { getDb } from "../../../../../lib/mongodb";
+import { paymentReturnCallbackUrl } from "../../../../../lib/site-url";
 import {
   parseProgrammeLevel,
   PROGRAMME_LEVEL_LABELS,
@@ -15,6 +16,7 @@ export async function POST(req: NextRequest) {
       email?: string;
       schoolId?: string;
       programmeLevel?: string;
+      returnOrigin?: string;
     };
     const programmeLevel = parseProgrammeLevel(body?.programmeLevel);
 
@@ -72,7 +74,10 @@ export async function POST(req: NextRequest) {
 
     const amountPesewas = Math.round(priceGhsRaw * 100);
 
-    const callbackUrl = `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/university-forms/${schoolId}/success`;
+    // Public return page (no query string) — Paystack appends ?reference=
+    const callbackUrl = paymentReturnCallbackUrl(
+      typeof body?.returnOrigin === "string" ? body.returnOrigin : null,
+    );
 
     const tx = await initializePaystackTransaction({
       email,

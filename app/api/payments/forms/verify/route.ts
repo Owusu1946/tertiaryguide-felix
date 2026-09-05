@@ -224,13 +224,22 @@ export async function GET(req: NextRequest) {
       createdAt: now,
     });
 
-    await sendFormVoucherEmail({
-      to: email,
-      fullName,
-      schoolId: schoolIdRaw,
-      schoolName,
-      voucher,
-    });
+    let emailSent = false;
+    let emailError: string | null = null;
+    try {
+      await sendFormVoucherEmail({
+        to: email,
+        fullName,
+        schoolId: schoolIdRaw,
+        schoolName,
+        voucher,
+      });
+      emailSent = true;
+    } catch (mailErr) {
+      emailError =
+        mailErr instanceof Error ? mailErr.message : "Failed to send voucher email";
+      console.error("[payments/forms/verify] voucher email failed", mailErr);
+    }
 
     return NextResponse.json(
       {
@@ -239,6 +248,8 @@ export async function GET(req: NextRequest) {
         voucher,
         reference: tx.reference,
         programmeLevel,
+        emailSent,
+        emailError,
       },
       { status: 200 },
     );

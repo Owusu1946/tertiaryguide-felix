@@ -176,6 +176,8 @@ export default function SchoolDetailsPage() {
           email: voucherEmail.trim(),
           schoolId,
           programmeLevel,
+          returnOrigin:
+            typeof window !== "undefined" ? window.location.origin : undefined,
         }),
       });
 

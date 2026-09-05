@@ -110,7 +110,7 @@ export function ApproachingDeadlinesSection() {
     "grid-cols-[minmax(0,1.4fr)_minmax(4.5rem,0.7fr)_minmax(5rem,0.8fr)] sm:grid-cols-[minmax(0,1.6fr)_minmax(6.5rem,0.7fr)_minmax(7rem,0.8fr)] md:grid-cols-[minmax(0,1.8fr)_minmax(7.5rem,0.65fr)_minmax(8rem,0.75fr)]";
 
   return (
-    <section className="mt-8 w-full min-w-0 sm:mt-10">
+    <section id="deadlines" className="mt-8 w-full min-w-0 scroll-mt-24 sm:mt-10">
       <h2 className="mb-3 text-balance text-center font-sans text-2xl font-semibold leading-tight text-[#252525] min-[400px]:mb-4 min-[400px]:text-3xl sm:text-4xl md:mb-5 md:text-5xl">
         Approaching Deadlines
       </h2>

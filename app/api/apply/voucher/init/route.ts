@@ -8,6 +8,7 @@ import {
   ensureAdmissionVoucherIndexes,
   resolvePartnerVoucherAmount,
 } from "../../../../../lib/admissions/vouchers";
+import { paymentReturnCallbackUrl } from "../../../../../lib/site-url";
 import {
   parseProgrammeLevel,
   PROGRAMME_LEVEL_LABELS,
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest) {
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const schoolId = typeof body?.schoolId === "string" ? body.schoolId : "";
     const programmeLevel = parseProgrammeLevel(body?.programmeLevel);
+    const returnOrigin =
+      typeof body?.returnOrigin === "string" ? body.returnOrigin : null;
 
     if (!fullName || !email || !schoolId) {
       return NextResponse.json(
@@ -63,8 +66,7 @@ export async function POST(req: NextRequest) {
 
     const amountPesewas = Math.round(priceGhs * 100);
     const slug = school.slug || schoolId;
-    const base = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-    const callbackUrl = `${base}/apply?school=${encodeURIComponent(slug)}&step=voucher-success`;
+    const callbackUrl = paymentReturnCallbackUrl(returnOrigin);
 
     const tx = await initializePaystackTransaction({
       email,

@@ -59,7 +59,7 @@ import {
   readApplySession,
   writeApplySession,
 } from "@/lib/admissions/applicant-session";
-import { Field, SearchableSelect, TextInput, TextSelect } from "./FormControls";
+import { Field, FormCard, FormNotice, FormSection, SearchableSelect, TextInput, TextSelect } from "./FormControls";
 import { FileDropzone } from "./FileDropzone";
 import {
   ApplicationPrintout,
@@ -878,62 +878,86 @@ export function MultiStepApplicationForm({
 
   return (
     <div className="space-y-5">
-      {/* Progress */}
-      <div className="rounded-3xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-[#0F172A]">
-            Step {tabIndex + 1} of {APPLICATION_TABS.length}:{" "}
-            {APPLICATION_TABS[tabIndex]?.label}
-          </p>
-          <button
-            type="button"
-            onClick={() => void saveDraft()}
-            disabled={savingDraft}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--school-brand-border,#BFDBFE)] px-3 py-1.5 text-xs font-medium text-[var(--school-brand,#007AFF)] disabled:opacity-50"
-          >
-            {savingDraft ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )}
-            Save draft
-          </button>
-        </div>
-        <div className="mb-3 h-2 overflow-hidden rounded-full bg-[#E2E8F0]">
-          <div
-            className="h-full rounded-full bg-[var(--school-brand,#007AFF)] transition-all"
-            style={{
-              width: `${((tabIndex + 1) / APPLICATION_TABS.length) * 100}%`,
-            }}
-          />
-        </div>
-        <div className="flex gap-1 overflow-x-auto pb-1">
-          {APPLICATION_TABS.map((t, i) => (
+      <div className="overflow-hidden rounded-[28px] border border-[#E8EEF5] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+        <div className="border-b border-[#EEF2F7] bg-gradient-to-br from-[var(--school-brand-soft,#EFF6FF)] via-white to-white px-4 py-4 sm:px-6 sm:py-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#94A3B8]">
+                Application form
+              </p>
+              <h2 className="mt-1 text-lg font-semibold tracking-tight text-[#0F172A] sm:text-xl">
+                {APPLICATION_TABS[tabIndex]?.label}
+              </h2>
+              <p className="mt-1 text-sm text-[#64748B]">
+                Step {tabIndex + 1} of {APPLICATION_TABS.length} · {schoolName}
+              </p>
+            </div>
             <button
-              key={t.id}
               type="button"
-              onClick={() => {
-                if (i <= tabIndex || validateTab(tab)) setTab(t.id);
-              }}
-              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                t.id === tab
-                  ? "bg-[var(--school-brand,#007AFF)] text-white"
-                  : i < tabIndex
-                    ? "bg-[var(--school-brand-soft,#DBEAFE)] text-[var(--school-brand,#1D4ED8)]"
-                    : "bg-[#F1F5F9] text-[#64748B]"
-              }`}
+              onClick={() => void saveDraft()}
+              disabled={savingDraft}
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 self-start rounded-full border border-[var(--school-brand-border,#BFDBFE)] bg-white px-3.5 py-2 text-xs font-semibold text-[var(--school-brand,#007AFF)] shadow-sm transition hover:bg-[var(--school-brand-soft,#EFF6FF)] disabled:opacity-50"
             >
-              {t.label}
+              {savingDraft ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Save className="h-3.5 w-3.5" />
+              )}
+              Save draft
             </button>
-          ))}
-        </div>
-        {draftMsg && (
-          <p className="mt-2 text-xs text-[#16A34A]">{draftMsg}</p>
-        )}
-      </div>
+          </div>
 
-      <div className="rounded-3xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-6">
+          <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/80 ring-1 ring-[#E2E8F0]/70">
+            <div
+              className="h-full rounded-full bg-[var(--school-brand,#007AFF)] transition-all duration-300"
+              style={{
+                width: `${((tabIndex + 1) / APPLICATION_TABS.length) * 100}%`,
+              }}
+            />
+          </div>
+
+          <div className="mt-3 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {APPLICATION_TABS.map((t, i) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  if (i <= tabIndex || validateTab(tab)) setTab(t.id);
+                }}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
+                  t.id === tab
+                    ? "bg-[var(--school-brand,#007AFF)] text-white shadow-sm"
+                    : i < tabIndex
+                      ? "bg-white text-[var(--school-brand,#1D4ED8)] ring-1 ring-[var(--school-brand-border,#BFDBFE)]"
+                      : "bg-white/70 text-[#94A3B8] ring-1 ring-[#E2E8F0]"
+                }`}
+              >
+                <span
+                  className={`flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${
+                    t.id === tab
+                      ? "bg-white/20 text-white"
+                      : i < tabIndex
+                        ? "bg-[var(--school-brand-soft,#DBEAFE)] text-[var(--school-brand,#1D4ED8)]"
+                        : "bg-[#F1F5F9] text-[#94A3B8]"
+                  }`}
+                >
+                  {i + 1}
+                </span>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {draftMsg && (
+            <p className="mt-3 text-xs font-medium text-[#16A34A]">{draftMsg}</p>
+          )}
+        </div>
+
+        <div className="px-4 py-5 sm:px-6 sm:py-6">
         {tab === "personal" && (
+          <FormSection
+            title="Personal details"
+            description="Enter your details exactly as they appear on your certificate or result slip."
+          >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Title" required error={errors.title}>
               <TextSelect
@@ -968,8 +992,14 @@ export function MultiStepApplicationForm({
               />
             </Field>
             <div className="sm:col-span-2">
+              <FormNotice tone="brand">
+                Use the same name order as on your certificate / result slip:
+                Title, Surname, First name, then other names.
+              </FormNotice>
+            </div>
+            <div className="sm:col-span-2">
               <p className="mb-1.5 text-sm font-medium text-[#334155]">
-                Date of birth <span className="text-red-500">*</span>
+                Date of birth <span className="text-[11px] font-semibold text-[#EF4444]">*</span>
               </p>
               <div className="grid grid-cols-3 gap-2">
                 <TextSelect
@@ -1011,7 +1041,7 @@ export function MultiStepApplicationForm({
               {(errors.dateOfBirthDay ||
                 errors.dateOfBirthMonth ||
                 errors.dateOfBirthYear) && (
-                <p className="mt-1 text-xs text-red-600">
+                <p className="mt-1 text-xs font-medium text-[#DC2626]">
                   {errors.dateOfBirthDay ||
                     errors.dateOfBirthMonth ||
                     errors.dateOfBirthYear}
@@ -1171,9 +1201,14 @@ export function MultiStepApplicationForm({
               />
             </Field>
           </div>
+          </FormSection>
         )}
 
         {tab === "guardian" && (
+          <FormSection
+            title="Guardian / next of kin"
+            description="Provide a reachable guardian or next of kin we can contact about this application."
+          >
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Guardian title" required error={errors.guardianTitle}>
               <TextSelect
@@ -1277,15 +1312,20 @@ export function MultiStepApplicationForm({
               />
             </Field>
           </div>
+          </FormSection>
         )}
 
         {tab === "programme" && (
+          <FormSection
+            title="Programme choices"
+            description="Rank up to four programme preferences. Your first choice is required."
+          >
           <div className="space-y-4">
             {programmes.length === 0 && (
-              <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                This school has not published programmes yet. Ask the school admin
-                to add programmes and streams in their portal.
-              </p>
+              <FormNotice tone="warning">
+                This school has not published programmes yet. Ask the school
+                admin to add programmes and streams in their portal.
+              </FormNotice>
             )}
             {(
               [
@@ -1301,12 +1341,13 @@ export function MultiStepApplicationForm({
                 `${ord}ChoiceStream` as keyof ApplicationFormState["programme"];
               const progVal = form.programme[progKey] as string;
               return (
-                <div
+                <FormCard
                   key={ord}
-                  className="grid gap-3 rounded-2xl border border-[#F1F5F9] p-4 sm:grid-cols-2"
+                  title={`${ord[0]!.toUpperCase()}${ord.slice(1)} choice`}
                 >
+                  <div className="grid gap-3 sm:grid-cols-2">
                   <Field
-                    label={`${ord[0]!.toUpperCase()}${ord.slice(1)} choice programme`}
+                    label="Programme"
                     required={required}
                     error={errors[progKey]}
                   >
@@ -1326,7 +1367,7 @@ export function MultiStepApplicationForm({
                     </TextSelect>
                   </Field>
                   <Field
-                    label={`${ord[0]!.toUpperCase()}${ord.slice(1)} choice stream`}
+                    label="Stream"
                     required={required || !!progVal}
                     error={errors[streamKey]}
                   >
@@ -1343,10 +1384,12 @@ export function MultiStepApplicationForm({
                       ))}
                     </TextSelect>
                   </Field>
-                </div>
+                  </div>
+                </FormCard>
               );
             })}
           </div>
+          </FormSection>
         )}
 
         {tab === "education" && (
@@ -1707,6 +1750,10 @@ export function MultiStepApplicationForm({
         )}
 
         {tab === "review" && (
+          <FormSection
+            title="Review & submit"
+            description="Check your summary carefully, then accept the declaration to submit."
+          >
           <div className="space-y-4 text-sm">
             <div className="flex justify-end">
               <button
@@ -1765,31 +1812,34 @@ export function MultiStepApplicationForm({
                     declarationAccepted: e.target.checked,
                   }))
                 }
-                className="mt-1 h-4 w-4"
+                className="mt-1 h-4 w-4 rounded border-[#CBD5E1] text-[var(--school-brand,#007AFF)] focus:ring-[var(--school-brand,#007AFF)]"
               />
-              <span>
-                I certify that the information provided is true and accurate.
+              <span className="leading-relaxed text-[#334155]">
+                I have read the declaration above. I certify that the
+                information provided is true and accurate, and that my name
+                appears in the same order as on my certificate / result slip.
                 {errors.declarationAccepted && (
-                  <span className="mt-1 block text-xs text-red-600">
+                  <span className="mt-1 block text-xs font-medium text-[#DC2626]">
                     {errors.declarationAccepted}
                   </span>
                 )}
               </span>
             </label>
             {submitError && (
-              <p className="rounded-xl bg-red-50 px-3 py-2 text-red-700">
+              <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                 {submitError}
               </p>
             )}
           </div>
+          </FormSection>
         )}
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#F1F5F9] pt-4">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#EEF2F7] pt-5">
           <button
             type="button"
             onClick={goPrev}
             disabled={tabIndex === 0}
-            className="inline-flex items-center gap-1 rounded-full border border-[#E2E8F0] px-4 py-2 text-sm font-medium disabled:opacity-40"
+            className="inline-flex min-h-11 items-center gap-1 rounded-full border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-semibold text-[#334155] shadow-sm transition hover:bg-[#F8FAFC] disabled:opacity-40"
           >
             <ChevronLeft className="h-4 w-4" /> Previous
           </button>
@@ -1798,7 +1848,7 @@ export function MultiStepApplicationForm({
               type="button"
               onClick={() => void submit()}
               disabled={busy}
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--school-brand,#007AFF)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--school-brand-hover,#0062CC)] disabled:opacity-60"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[var(--school-brand,#007AFF)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--school-brand-hover,#0062CC)] disabled:opacity-60"
             >
               {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1813,11 +1863,12 @@ export function MultiStepApplicationForm({
             <button
               type="button"
               onClick={goNext}
-              className="inline-flex items-center gap-1 rounded-full bg-[var(--school-brand,#007AFF)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--school-brand-hover,#0062CC)]"
+              className="inline-flex min-h-11 items-center gap-1 rounded-full bg-[var(--school-brand,#007AFF)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--school-brand-hover,#0062CC)]"
             >
               Next <ChevronRight className="h-4 w-4" />
             </button>
           )}
+        </div>
         </div>
       </div>
     </div>

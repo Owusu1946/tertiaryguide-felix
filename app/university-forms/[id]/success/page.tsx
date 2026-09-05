@@ -1,32 +1,27 @@
 "use client";
 
 import React, { Suspense, useEffect, useState } from "react";
-import { useSearchParams, useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { Header } from "../../../components/Header";
 import { Footer } from "../../../components/Footer";
-import {
-  buildVoucherLastPurchasePayload,
-  type LastVoucherStored,
-} from "@/lib/last-purchase-badges";
 
+/**
+ * Legacy Paystack callback for older transactions.
+ * Verifies payment then sends the buyer to My Forms.
+ */
 function UniversityFormSuccessContent() {
   const searchParams = useSearchParams();
-  const params = useParams<{ id: string }>();
-  const reference = searchParams.get("reference") ?? "";
-  const schoolId = params?.id;
+  const reference =
+    searchParams.get("reference")?.trim() ||
+    searchParams.get("trxref")?.trim() ||
+    "";
 
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
-  const [voucher, setVoucher] = useState<{ serial: string; pin: string } | null>(
-    null,
-  );
-  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     if (!reference) {
       setError("Missing payment reference.");
-      setLoading(false);
       return;
     }
 
@@ -34,18 +29,29 @@ function UniversityFormSuccessContent() {
 
     async function load() {
       try {
-        setLoading(true);
-        setError(null);
-        const res = await fetch(`/api/payments/forms/verify?reference=${encodeURIComponent(reference)}`);
+        const res = await fetch(
+          `/api/payments/forms/verify?reference=${encodeURIComponent(reference)}`,
+        );
         const data = await res.json();
         if (!res.ok) {
           throw new Error(data.error || "Could not verify payment.");
         }
-        if (!cancelled) {
-          setEmail(data.email ?? null);
-          setVoucher(data.voucher ?? null);
-          setPending(Boolean(data.pending));
+        if (cancelled) return;
+
+        if (typeof data.email === "string" && data.email.trim()) {
+          try {
+            window.localStorage.setItem(
+              "tg_user_email",
+              data.email.trim().toLowerCase(),
+            );
+          } catch {
+            // ignore
+          }
         }
+        window.dispatchEvent(new CustomEvent("tg-purchases-updated"));
+        window.location.replace(
+          `/dashboard/my-forms?reference=${encodeURIComponent(reference)}`,
+        );
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -54,60 +60,14 @@ function UniversityFormSuccessContent() {
               : "Could not verify payment. Please contact support.",
           );
         }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
       }
     }
 
     void load();
-
-    const handleUpdate = () => {
-      void load();
-    };
-
-    window.addEventListener("tg-purchases-updated", handleUpdate);
-
     return () => {
       cancelled = true;
-      window.removeEventListener("tg-purchases-updated", handleUpdate);
     };
   }, [reference]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!email) return;
-
-    try {
-      let previous: LastVoucherStored | null = null;
-      try {
-        const prevRaw = window.localStorage.getItem("tg_last_voucher_purchase");
-        if (prevRaw) {
-          previous = JSON.parse(prevRaw) as LastVoucherStored;
-        }
-      } catch {
-        previous = null;
-      }
-
-      const payload = buildVoucherLastPurchasePayload({
-        email,
-        schoolId: typeof schoolId === "string" ? schoolId : null,
-        reference,
-        voucher,
-        pending,
-        previous,
-      });
-
-      window.localStorage.setItem(
-        "tg_last_voucher_purchase",
-        JSON.stringify(payload),
-      );
-      window.dispatchEvent(new CustomEvent("tg-voucher-purchased"));
-    } catch {
-      // ignore
-    }
-  }, [email, voucher, pending, reference, schoolId]);
 
   return (
     <div className="min-h-screen bg-white text-[#1E1E1E]">
@@ -129,7 +89,6 @@ function UniversityFormSuccessContent() {
           )}
         </main>
       </div>
-
       <Footer />
     </div>
   );
@@ -137,11 +96,13 @@ function UniversityFormSuccessContent() {
 
 export default function UniversityFormSuccessPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-sm text-gray-500">Loading...</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-white">
+          <Loader2 className="h-10 w-10 animate-spin text-[#007AFF]" />
+        </div>
+      }
+    >
       <UniversityFormSuccessContent />
     </Suspense>
   );

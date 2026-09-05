@@ -242,7 +242,7 @@ function ApplicantPortalContent() {
 
   if (!authReady) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
+      <main className="flex min-h-screen items-center justify-center bg-[#F7F9FC]">
         <Loader2 className="h-6 w-6 animate-spin text-[#007AFF]" />
       </main>
     );
@@ -250,7 +250,7 @@ function ApplicantPortalContent() {
 
   return (
     <div
-      className="min-h-screen bg-[#F8FAFC] text-[#050816]"
+      className="min-h-screen bg-[#F7F9FC] text-[#0F172A]"
       style={themeStyle}
     >
       <Header />
@@ -268,27 +268,28 @@ function ApplicantPortalContent() {
               school is still reviewing.
             </p>
           </div>
-          {session && (
+          {session ? (
             <button
               type="button"
               onClick={handleLogout}
               className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-medium sm:self-center"
             >
-              <LogOut className="h-3.5 w-3.5" /> Log out
+              <LogOut className="h-4 w-4" />
+              Log out
             </button>
-          )}
-        </div>
+          ) : null}
+        </header>
 
-        {error && (
-          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {error ? (
+          <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
-        )}
-        {message && (
-          <div className="mb-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+        ) : null}
+        {message ? (
+          <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
             {message}
           </div>
-        )}
+        ) : null}
 
         {!session ? (
           <section className="overflow-hidden rounded-[28px] border border-[#E5E7EB] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
@@ -315,8 +316,8 @@ function ApplicantPortalContent() {
                   ))}
                 </select>
               </label>
-              <label className="space-y-1 text-sm">
-                <span className="font-medium">Serial number</span>
+              <label className="space-y-1.5 text-sm">
+                <span className="font-medium text-[#334155]">Serial number</span>
                 <input
                   required
                   value={serialNumber}
@@ -325,8 +326,8 @@ function ApplicantPortalContent() {
                   placeholder="TG-2026-001234"
                 />
               </label>
-              <label className="space-y-1 text-sm">
-                <span className="font-medium">PIN</span>
+              <label className="space-y-1.5 text-sm">
+                <span className="font-medium text-[#334155]">PIN</span>
                 <input
                   required
                   value={voucherCode}
@@ -340,7 +341,14 @@ function ApplicantPortalContent() {
                 disabled={busy}
                 className="rounded-full bg-[var(--school-brand,#007AFF)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--school-brand-hover,#0062CC)] disabled:opacity-60 sm:col-span-2"
               >
-                {busy ? "Signing in…" : "Sign in"}
+                {busy ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Signing in…
+                  </span>
+                ) : (
+                  "Continue"
+                )}
               </button>
             </form>
             <p className="border-t border-[#F1F5F9] px-6 py-4 text-center text-sm text-[#6B7280]">

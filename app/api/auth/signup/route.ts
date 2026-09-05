@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "../../../../lib/mongodb";
 import { hashPassword } from "../../../../lib/password";
+import { sendWelcomeEmail } from "../../../../lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,6 +50,15 @@ export async function POST(req: NextRequest) {
       createdAt: now,
       updatedAt: now,
     });
+
+    try {
+      await sendWelcomeEmail({
+        to: email.toLowerCase(),
+        username,
+      });
+    } catch (error) {
+      console.error("[signup] welcome email failed", error);
+    }
 
     return NextResponse.json(
       {

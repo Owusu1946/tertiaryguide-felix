@@ -137,6 +137,231 @@ export async function sendOtpEmail(opts: {
   }
 }
 
+export async function sendWelcomeEmail(opts: {
+  to: string;
+  username?: string;
+}): Promise<void> {
+  const { to, username } = opts;
+  const siteUrl = absoluteUrl("/");
+  const logoUrl = absoluteUrl("/hero/logoTguide.png");
+  const exploreUrl = absoluteUrl("/explore");
+  const formsUrl = absoluteUrl("/university-forms");
+  const wassceUrl = absoluteUrl("/wassce-checker");
+  const programmesUrl = absoluteUrl("/program-search");
+  const deadlinesUrl = absoluteUrl("/#deadlines");
+  const myFormsUrl = absoluteUrl("/dashboard/my-forms");
+  const assistanceUrl = absoluteUrl("/dashboard/assistance");
+  const blogUrl = absoluteUrl("/blog");
+  const faqsUrl = absoluteUrl("/faqs");
+  const greetingName = (username || "").trim();
+  const greeting = greetingName ? `Hello ${greetingName},` : "Hello,";
+
+  const features: { title: string; body: string; href: string; extra?: string }[] =
+    [
+      {
+        title: "Buy University Application Forms",
+        body: "Purchase admission forms for top universities — including teacher training and nursing training — directly through the platform. No queues, no stress.",
+        href: formsUrl,
+      },
+      {
+        title: "WASSCE Checker Vouchers",
+        body: "Get your WASSCE checker PIN instantly after payment — no more back-and-forth on WhatsApp groups.",
+        href: wassceUrl,
+      },
+      {
+        title: "Find & Compare Programmes",
+        body: "Compare programmes across institutions side by side — save days of hunting through PDFs and school websites.",
+        href: programmesUrl,
+      },
+      {
+        title: "Never Miss a Deadline",
+        body: "See approaching deadlines across every school in one place, so important dates never slip through the cracks.",
+        href: deadlinesUrl,
+      },
+      {
+        title: 'Track Everything in "My Forms"',
+        body: "Your personalized dashboard keeps every form and voucher you've purchased in one organized place.",
+        href: myFormsUrl,
+      },
+      {
+        title: "Get Real Assistance",
+        body: "Have an issue with a purchase? Need a guide? Our support team responds with a reference number and gets you sorted quickly.",
+        href: assistanceUrl,
+      },
+      {
+        title: "Guides Written For You",
+        body: "Our blog and FAQ cover everything from financial aid to thriving in your first semester — especially helpful if you're a first-generation applicant navigating this alone.",
+        href: blogUrl,
+        extra: `<a href="${escapeHtml(faqsUrl)}" style="color:#007AFF;text-decoration:underline;">Read FAQs</a>`,
+      },
+    ];
+
+  const subject = "Welcome to TertiaryGuide — your account is ready";
+  const text = [
+    greeting,
+    "",
+    "Welcome to TertiaryGuide",
+    "Your account is ready. You're now one step closer to a stress-free journey through university admissions, programme search, and WASSCE results.",
+    "",
+    `Explore More: ${exploreUrl}`,
+    "",
+    "Here's everything you can do on the platform",
+    "Built to make tertiary admissions in Ghana simpler, faster, and stress-free.",
+    "",
+    ...features.flatMap((feature) => [
+      feature.title,
+      feature.body,
+      feature.href,
+      "",
+    ]),
+    `Explore More: ${exploreUrl}`,
+    "",
+    "The TertiaryGuide Team",
+    siteUrl,
+  ].join("\n");
+
+  const featureRows = features
+    .map(
+      (feature) => `
+          <tr>
+            <td style="padding:0 0 12px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F8FAFC;border:1px solid #E8EEF5;border-radius:14px;">
+                <tr>
+                  <td style="padding:16px 18px;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+                    <p style="margin:0 0 6px 0;font-size:15px;font-weight:700;line-height:1.35;">
+                      <a href="${escapeHtml(feature.href)}" style="color:#0F172A;text-decoration:none;">
+                        ${escapeHtml(feature.title)}
+                      </a>
+                    </p>
+                    <p style="margin:0 0 10px 0;font-size:13px;line-height:1.6;color:#475569;">
+                      ${escapeHtml(feature.body)}
+                    </p>
+                    <p style="margin:0;font-size:13px;font-weight:600;">
+                      <a href="${escapeHtml(feature.href)}" style="color:#007AFF;text-decoration:none;">
+                        Open this on TertiaryGuide →
+                      </a>
+                      ${feature.extra ? `&nbsp;·&nbsp; ${feature.extra}` : ""}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`,
+    )
+    .join("");
+
+  const exploreButton = `
+              <a
+                href="${escapeHtml(exploreUrl)}"
+                style="
+                  display:inline-block;
+                  padding:14px 28px;
+                  border-radius:9999px;
+                  background-color:#007AFF;
+                  color:#ffffff !important;
+                  font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+                  font-size:15px;
+                  font-weight:700;
+                  text-decoration:none;
+                  box-shadow:0 8px 20px rgba(0,122,255,0.25);
+                "
+              >Explore More →</a>`;
+
+  const result = await resend.emails.send({
+    from: FROM_EMAIL,
+    to,
+    subject,
+    text,
+    html: `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F3F4F6;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F3F4F6;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background-color:#ffffff;border-radius:20px;overflow:hidden;border:1px solid #E5E7EB;">
+          <tr>
+            <td style="padding:28px 32px 20px 32px;background:linear-gradient(180deg,#F0F7FF 0%,#FFFFFF 100%);border-bottom:1px solid #E8EEF5;">
+              <a href="${escapeHtml(siteUrl)}" style="text-decoration:none;">
+                <img
+                  src="${escapeHtml(logoUrl)}"
+                  alt="TertiaryGuide"
+                  width="168"
+                  height="40"
+                  style="display:block;height:40px;width:auto;max-width:180px;border:0;"
+                />
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 32px 8px 32px;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0F172A;">
+              <p style="margin:0 0 8px 0;font-size:14px;color:#475569;">${escapeHtml(greeting)}</p>
+              <h1 style="margin:0 0 12px 0;font-size:26px;line-height:1.25;font-weight:700;color:#0F172A;">
+                Welcome to TertiaryGuide
+              </h1>
+              <p style="margin:0;font-size:15px;line-height:1.65;color:#475569;">
+                Your account is ready. You're now one step closer to a stress-free journey through university admissions, programme search, and WASSCE results.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:24px 32px 8px 32px;">
+              ${exploreButton}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 32px 8px 32px;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+              <p style="margin:0 0 6px 0;font-size:13px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:0.04em;">
+                Here's everything you can do on the platform
+              </p>
+              <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#475569;">
+                Built to make tertiary admissions in Ghana simpler, faster, and stress-free.
+              </p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                ${featureRows}
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:12px 32px 28px 32px;">
+              ${exploreButton}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:22px 32px;background-color:#0B1220;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+              <p style="margin:0 0 6px 0;font-size:14px;font-weight:600;color:#FFFFFF;">
+                The TertiaryGuide Team
+              </p>
+              <a href="${escapeHtml(siteUrl)}" style="font-size:12px;color:#60A5FA;text-decoration:none;">
+                tertiaryguide.com
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `,
+  });
+
+  console.log("[sendWelcomeEmail] Resend response", {
+    to,
+    error: result.error ?? null,
+    id: result.data?.id ?? null,
+  });
+
+  if (result.error) {
+    throw new Error(result.error.message || "Failed to send welcome email");
+  }
+}
+
 export async function sendWassceCheckerEmail(opts: {
   to: string;
   fullName?: string;
@@ -237,7 +462,8 @@ export async function sendFormVoucherEmail(opts: {
   schoolName: string;
   voucher: { serial: string; pin: string };
 }): Promise<void> {
-  const { to, fullName, schoolId, schoolName, voucher } = opts;
+  const { to, fullName, schoolName, voucher } = opts;
+  const myFormsUrl = absoluteUrl("/dashboard/my-forms");
 
   const subject = `Your ${schoolName} Voucher (TertiaryGuide)`;
 
@@ -252,6 +478,8 @@ export async function sendFormVoucherEmail(opts: {
     "",
     "Keep these details safe and do not share them publicly.",
     "",
+    `View this voucher anytime in My Forms: ${myFormsUrl}`,
+    "",
     "Thank you for using TertiaryGuide.",
   ];
 
@@ -261,7 +489,7 @@ export async function sendFormVoucherEmail(opts: {
           <p style="margin: 0 0 12px 0; font-size: 16px;">Hello${fullName ? ` <strong>${fullName}</strong>` : ""
     },</p>
           <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.5; color: #4B5563;">
-            Here is your <strong>${schoolName} voucher</strong> purchased via TertiaryGuide.
+            Here is your <strong>${escapeHtml(schoolName)} voucher</strong> purchased via TertiaryGuide.
           </p>
 
           <div style="margin: 0 0 12px 0; padding: 12px 14px; border-radius: 12px; background: linear-gradient(135deg, #007AFF0D, #EEF2FF); border: 1px solid #E5E7EB;">
@@ -270,17 +498,23 @@ export async function sendFormVoucherEmail(opts: {
             </p>
             <p style="margin: 4px 0; font-size: 14px;">
               <span style="font-weight: 600; color: #111827;">School:</span>
-              <span style="margin-left: 8px; font-weight: 500;">${schoolName}</span>
+              <span style="margin-left: 8px; font-weight: 500;">${escapeHtml(schoolName)}</span>
             </p>
             <p style="margin: 4px 0; font-size: 14px;">
               <span style="font-weight: 600; color: #111827;">Serial:</span>
-              <span style="margin-left: 8px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">${voucher.serial}</span>
+              <span style="margin-left: 8px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">${escapeHtml(voucher.serial)}</span>
             </p>
             <p style="margin: 4px 0 0 0; font-size: 14px;">
               <span style="font-weight: 600; color: #111827;">PIN:</span>
-              <span style="margin-left: 8px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">${voucher.pin}</span>
+              <span style="margin-left: 8px; font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">${escapeHtml(voucher.pin)}</span>
             </p>
           </div>
+
+          <p style="margin: 0 0 16px 0; text-align: center;">
+            <a href="${escapeHtml(myFormsUrl)}" style="display:inline-block;padding:12px 22px;border-radius:9999px;background-color:#007AFF;color:#ffffff !important;font-size:14px;font-weight:700;text-decoration:none;">
+              Open My Forms
+            </a>
+          </p>
 
           <p style="margin: 0 0 8px 0; font-size: 13px; color: #374151;">
             Keep this email safe. Anyone with access to this serial and PIN can use the voucher.

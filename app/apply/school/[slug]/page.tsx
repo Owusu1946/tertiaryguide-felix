@@ -190,6 +190,7 @@ export default function PartnerSchoolDetailPage() {
           email: accountEmail,
           schoolId: school.id,
           programmeLevel,
+          returnOrigin: window.location.origin,
         }),
       });
 
