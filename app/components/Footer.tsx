@@ -131,10 +131,10 @@ export function Footer() {
               className="inline-flex transition-opacity hover:opacity-90"
             >
               <Image
-                src="/hero/logoTguide.png"
+                src="/hero/full-logo.png"
                 alt="TertiaryGuide"
-                width={1029}
-                height={163}
+                width={1024}
+                height={189}
                 className="h-8 w-auto brightness-0 invert lg:h-9"
               />
             </Link>
