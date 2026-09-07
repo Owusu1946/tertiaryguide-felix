@@ -36,7 +36,14 @@ export async function POST(req: Request) {
         }
 
         const user = await users.findOne({ email: normalizedEmail }, { projection: { username: 1, email: 1, phone: 1, profilePicture: 1, avatarSeed: 1 } });
-        if (user?.email) await cacheUser({ id: String(user._id), username: user.username || "", email: user.email, phone: user.phone, profilePicture: user.profilePicture ?? null, avatarSeed: user.avatarSeed ?? null });
+        if (user?.email) {
+            await cacheUser({ id: String(user._id), username: user.username || "", email: user.email, phone: user.phone, profilePicture: user.profilePicture ?? null, avatarSeed: user.avatarSeed ?? null });
+            const newAvatarUrl = user.profilePicture || `https://api.navii.dev/avatar/${encodeURIComponent(user.avatarSeed || String(user._id))}?size=96&tileBg=auto`;
+            await Promise.all([
+                db.collection("exploreComments").updateMany({ userEmail: normalizedEmail }, { $set: { userAvatar: newAvatarUrl } }),
+                db.collection("blogComments").updateMany({ userEmail: normalizedEmail }, { $set: { userAvatar: newAvatarUrl } }),
+            ]).catch((err) => console.error("Failed to update comments userAvatar:", err));
+        }
         return NextResponse.json({ success: true, profilePicture: user?.profilePicture ?? null, avatarSeed: user?.avatarSeed ?? null });
     } catch (error) {
         console.error("Error updating profile picture:", error);

@@ -24,6 +24,23 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       .limit(100)
       .toArray();
 
+    // Fetch latest user profile pictures/avatars from users collection
+    const emails = Array.from(new Set(comments.map((c) => c.userEmail).filter(Boolean)));
+    const users = emails.length > 0
+      ? await db.collection("users").find(
+          { email: { $in: emails } },
+          { projection: { email: 1, profilePicture: 1, avatarSeed: 1 } }
+        ).toArray()
+      : [];
+
+    const userAvatarMap = new Map<string, string>();
+    for (const u of users) {
+      if (u.email) {
+        const avatar = u.profilePicture || `https://api.navii.dev/avatar/${encodeURIComponent(u.avatarSeed || String(u._id))}?size=96&tileBg=auto`;
+        userAvatarMap.set(u.email.toLowerCase(), avatar);
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       comments: comments.map((c) => ({
@@ -32,7 +49,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
         parentId: c.parentId ? String(c.parentId) : null,
         userEmail: c.userEmail,
         userName: c.userName,
-        userAvatar: c.userAvatar || "/hero/avatar.png",
+        userAvatar: (c.userEmail && userAvatarMap.get(c.userEmail.toLowerCase())) || c.userAvatar || "/hero/avatar.png",
         text: c.text,
         likes: Array.isArray(c.likes) ? c.likes : [],
         createdAt: c.createdAt.toISOString(),
@@ -59,7 +76,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const userName =
       typeof body.userName === "string" ? body.userName.trim() : "";
-    const userAvatar =
+    const reqAvatar =
       typeof body.userAvatar === "string" && body.userAvatar.trim()
         ? body.userAvatar.trim()
         : "/hero/avatar.png";
@@ -90,6 +107,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       const parent = await exploreCommentsCollection(db).findOne({ _id: parentId, postId: new ObjectId(id) });
       if (!parent) return NextResponse.json({ error: "Parent comment not found" }, { status: 404 });
     }
+
+    // Resolve latest user avatar from users collection
+    const userDoc = await db.collection("users").findOne(
+      { email },
+      { projection: { profilePicture: 1, avatarSeed: 1 } }
+    );
+    const userAvatar = userDoc
+      ? (userDoc.profilePicture || `https://api.navii.dev/avatar/${encodeURIComponent(userDoc.avatarSeed || String(userDoc._id))}?size=96&tileBg=auto`)
+      : reqAvatar;
 
     const now = new Date();
     const doc = {

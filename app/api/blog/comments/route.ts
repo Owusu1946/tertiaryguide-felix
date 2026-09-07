@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -18,7 +17,30 @@ export async function GET(req: NextRequest) {
             .sort({ createdAt: 1 })
             .toArray();
 
-        return NextResponse.json({ ok: true, comments }, { status: 200 });
+        // Fetch latest user avatars from users collection
+        const emails = Array.from(new Set(comments.map((c) => c.userEmail).filter(Boolean)));
+        const users = emails.length > 0
+            ? await db.collection("users").find(
+                { email: { $in: emails } },
+                { projection: { email: 1, profilePicture: 1, avatarSeed: 1 } }
+              ).toArray()
+            : [];
+
+        const userAvatarMap = new Map<string, string>();
+        for (const u of users) {
+            if (u.email) {
+                const avatar = u.profilePicture || `https://api.navii.dev/avatar/${encodeURIComponent(u.avatarSeed || String(u._id))}?size=96&tileBg=auto`;
+                userAvatarMap.set(u.email.toLowerCase(), avatar);
+            }
+        }
+
+        const updatedComments = comments.map((c) => ({
+            ...c,
+            _id: String(c._id),
+            userAvatar: (c.userEmail && userAvatarMap.get(c.userEmail.toLowerCase())) || c.userAvatar || "/woman.png",
+        }));
+
+        return NextResponse.json({ ok: true, comments: updatedComments }, { status: 200 });
     } catch (error) {
         console.error("[blog/comments] GET error", error);
         return NextResponse.json({ error: "Failed to fetch comments" }, { status: 500 });
@@ -28,7 +50,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { postId, parentId, userEmail, userName, userAvatar, text } = body;
+        const { postId, parentId, userEmail, userName, userAvatar: reqAvatar, text } = body;
 
         if (!postId || !userEmail || !userName || !text) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -40,12 +62,21 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: "Parent comment not found" }, { status: 404 });
             }
         }
+
+        const userDoc = await db.collection("users").findOne(
+            { email: userEmail.trim().toLowerCase() },
+            { projection: { profilePicture: 1, avatarSeed: 1 } }
+        );
+        const resolvedAvatar = userDoc
+            ? (userDoc.profilePicture || `https://api.navii.dev/avatar/${encodeURIComponent(userDoc.avatarSeed || String(userDoc._id))}?size=96&tileBg=auto`)
+            : (reqAvatar || "/woman.png");
+
         const newComment = {
             postId,
             parentId: parentId || null,
             userEmail,
             userName,
-            userAvatar: userAvatar || "/woman.png",
+            userAvatar: resolvedAvatar,
             text,
             likes: [],
             createdAt: new Date(),
