@@ -1766,6 +1766,30 @@ export async function sendCampaignEmail(opts: {
   });
 }
 
+/** Wraps marketing content in the stable, client-compatible TertiaryGuide shell. */
+export function buildMarketingEmail(opts: {
+  contentHtml: string;
+  previewText?: string;
+}): string {
+  const siteUrl = absoluteUrl("/");
+  const preferencesUrl = absoluteUrl("/dashboard/notification");
+  const preview = escapeHtml(opts.previewText?.trim() || "Updates from TertiaryGuide");
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TertiaryGuide</title></head>
+<body style="margin:0;background:#f4f5f7;color:#1f2933;font-family:Arial,Helvetica,sans-serif;line-height:1.6;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${preview}</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f5f7;padding:28px 12px;">
+<tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #e5e7eb;">
+<tr><td style="padding:22px 28px;border-bottom:1px solid #e5e7eb;"><a href="${siteUrl}" style="display:inline-block;"><img src="${absoluteUrl("/hero/full-logo.png")}" width="205" alt="TertiaryGuide" style="display:block;width:205px;height:auto;border:0;"></a></td></tr>
+<tr><td style="padding:32px 28px;font-size:15px;">${opts.contentHtml}</td></tr>
+<tr><td style="padding:22px 28px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5;">
+<p style="margin:0 0 8px;"><strong style="color:#374151;">TertiaryGuide</strong></p>
+<p style="margin:0 0 8px;">Guiding your next step in tertiary education.</p>
+<p style="margin:0;"><a href="${siteUrl}" style="color:#374151;">Visit TertiaryGuide</a> &nbsp;|&nbsp; <a href="${preferencesUrl}" style="color:#374151;">Manage email preferences</a></p>
+</td></tr></table></td></tr></table></body></html>`;
+}
+
 export async function sendSchoolPortalInviteEmail(opts: {
   to: string;
   schoolName: string;

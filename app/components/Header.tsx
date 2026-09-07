@@ -108,10 +108,10 @@ function TertiaryLogo() {
   return (
     <Link href="/" className="inline-flex bg-transparent">
       <Image
-        src="/hero/logoTguide.png"
+        src="/hero/full-logo.png"
         alt="TertiaryGuide"
-        width={1029}
-        height={163}
+        width={1024}
+        height={189}
         priority
         quality={100}
         sizes="(max-width: 768px) 120px, 148px"

@@ -24,11 +24,32 @@ export function AdminEmailCampaignsSection() {
   
   // New campaign state
   const [subject, setSubject] = useState("");
+  const [previewText, setPreviewText] = useState("");
+  const [template, setTemplate] = useState("announcement");
   const [target, setTarget] = useState<"all" | "form-buyers" | "single">("single");
   const [singleEmail, setSingleEmail] = useState("");
   const [htmlContent, setHtmlContent] = useState(`<h2>Hello from TertiaryGuide!</h2>
 <p>We are excited to share some updates with you.</p>
 <p>Best regards,<br/>The TertiaryGuide Team</p>`);
+
+  const adminHeaders = (): Record<string, string> => {
+    const username = typeof window !== "undefined" ? window.localStorage.getItem("tg_admin_username") : null;
+    return username ? { "x-admin-username": username } : {};
+  };
+
+  const applyTemplate = (value: string) => {
+    setTemplate(value);
+    const templates: Record<string, { subject: string; preview: string; html: string }> = {
+      announcement: { subject: "An update from TertiaryGuide", preview: "The latest news and updates from TertiaryGuide.", html: "<h2>What’s new at TertiaryGuide?</h2><p>We’re sharing a short update to help you plan your next step in tertiary education.</p><p>Visit TertiaryGuide to learn more.</p>" },
+      deadline: { subject: "Important admissions deadline", preview: "A reminder about an upcoming admissions deadline.", html: "<h2>Important admissions deadline</h2><p>Please take a moment to review the upcoming deadline and complete your application in good time.</p>" },
+      newsletter: { subject: "TertiaryGuide newsletter", preview: "News, opportunities, and practical guidance for applicants.", html: "<h2>Your TertiaryGuide update</h2><p>Here are the latest opportunities, guidance, and resources for your tertiary education journey.</p>" },
+      blank: { subject: "", preview: "", html: "<p>Write your message here.</p>" },
+    };
+    const next = templates[value] || templates.announcement;
+    setSubject(next.subject);
+    setPreviewText(next.preview);
+    setHtmlContent(next.html);
+  };
   
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{
@@ -46,7 +67,7 @@ export function AdminEmailCampaignsSection() {
     try {
       setHistoryLoading(true);
       setHistoryError(null);
-      const res = await fetch("/api/admin/email-campaigns");
+      const res = await fetch("/api/admin/email-campaigns", { headers: adminHeaders() });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Failed to load campaign history");
@@ -90,9 +111,10 @@ export function AdminEmailCampaignsSection() {
 
       const res = await fetch("/api/admin/email-campaigns", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...adminHeaders() },
         body: JSON.stringify({
           subject,
+          previewText,
           htmlContent,
           target,
           singleEmail: target === "single" ? singleEmail : undefined,
@@ -207,6 +229,16 @@ export function AdminEmailCampaignsSection() {
             )}
 
             <div className="space-y-1.5">
+              <label htmlFor="campaign-template" className="text-xs font-semibold text-[#374151]">Template</label>
+              <select id="campaign-template" value={template} onChange={(e) => applyTemplate(e.target.value)} className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm text-[#111827] focus:border-[#374151] focus:outline-none focus:ring-1 focus:ring-[#374151]">
+                <option value="announcement">General announcement</option>
+                <option value="deadline">Admissions deadline</option>
+                <option value="newsletter">Newsletter</option>
+                <option value="blank">Blank email</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
               <label htmlFor="campaign-subject" className="text-xs font-semibold text-[#374151]">
                 Subject Line
               </label>
@@ -219,6 +251,11 @@ export function AdminEmailCampaignsSection() {
                 className="w-full rounded-xl border border-[#D1D5DB] px-3.5 py-2 text-sm text-[#111827] placeholder-gray-400 focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
                 required
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="campaign-preview" className="text-xs font-semibold text-[#374151]">Preview text <span className="font-normal text-[#6B7280]">(optional)</span></label>
+              <input id="campaign-preview" type="text" value={previewText} onChange={(e) => setPreviewText(e.target.value)} placeholder="Short line shown beside the subject in an inbox" className="w-full rounded-lg border border-[#D1D5DB] px-3.5 py-2 text-sm text-[#111827] placeholder-gray-400 focus:border-[#374151] focus:outline-none focus:ring-1 focus:ring-[#374151]" />
             </div>
 
             <div className="space-y-1.5">
@@ -329,7 +366,7 @@ export function AdminEmailCampaignsSection() {
               <h2 className="text-sm font-semibold">Live Email Preview</h2>
             </div>
             
-            <div className="mt-4 flex-1 rounded-xl border border-[#E5E7EB] bg-white overflow-hidden flex flex-col min-h-[350px]">
+            <div className="mt-4 flex-1 rounded-lg border border-[#E5E7EB] bg-[#F4F5F7] overflow-hidden flex flex-col min-h-[350px]">
               <div className="bg-[#F3F4F6] border-b border-[#E5E7EB] px-4 py-2 text-[11px] text-[#6B7280]">
                 <p><strong>From:</strong> TertiaryGuide &lt;no-reply@ventrapos.com&gt;</p>
                 <p className="truncate"><strong>Subject:</strong> {subject || "(No Subject Specified)"}</p>
@@ -337,7 +374,7 @@ export function AdminEmailCampaignsSection() {
               
               <iframe
                 title="Email Preview"
-                srcDoc={`<!DOCTYPE html><html><head><style>body { font-family: system-ui, -apple-system, sans-serif; padding: 16px; margin: 0; color: #111827; line-height: 1.5; }</style></head><body>${htmlContent}</body></html>`}
+                srcDoc={`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;color:#1f2933}a{color:#374151}img{max-width:100%;height:auto}</style></head><body><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:20px 8px;background:#f4f5f7"><tr><td align="center"><table width="100%" style="max-width:620px;background:#fff;border:1px solid #e5e7eb" cellspacing="0" cellpadding="0"><tr><td style="padding:20px 24px;border-bottom:1px solid #e5e7eb"><img src="/hero/full-logo.png" width="205" style="display:block;width:205px;height:auto" alt="TertiaryGuide"></td></tr><tr><td style="padding:28px 24px;font-size:15px;line-height:1.6">${htmlContent}</td></tr><tr><td style="padding:20px 24px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px">TertiaryGuide<br><a href="/dashboard/notification">Manage email preferences</a></td></tr></table></td></tr></table></body></html>`}
                 className="w-full flex-1 border-0 bg-white"
               />
             </div>

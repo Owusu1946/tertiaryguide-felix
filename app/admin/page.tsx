@@ -673,7 +673,7 @@ export default function AdminDashboardPage() {
     { id: "explore", label: "Explore", icon: Compass },
     { id: "ads", label: "Ads", icon: Megaphone },
     { id: "adReports", label: "Ad reports", icon: LineChart },
-    { id: "emailCampaigns", label: "Email campaigns", icon: Mail },
+    { id: "emailCampaigns", label: "Email campaigns", icon: Mail, superadminOnly: true },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "settings", label: "Settings", icon: Settings },
     { id: "staff", label: "Admin team", icon: UserCog, superadminOnly: true },

@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "../../../../lib/mongodb";
-import { sendCampaignEmail } from "../../../../lib/email";
+import { buildMarketingEmail, sendCampaignEmail } from "../../../../lib/email";
 import { notifyManyUsers } from "../../../../lib/user-notifications-server";
+import { nonStaffUserFilter, requireSuperadmin } from "../../../../lib/admin-access";
 
-export async function GET(_req: NextRequest) {
+function sanitizeCampaignHtml(input: string): string {
+  return input
+    .replace(/<\s*(script|style|iframe|object|embed|form)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/javascript\s*:/gi, "")
+    .trim();
+}
+
+function normalizeEmails(values: unknown[]): string[] {
+  return Array.from(new Set(values
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))));
+}
+
+export async function GET(req: NextRequest) {
+  const auth = await requireSuperadmin(req);
+  if ("response" in auth) return auth.response;
   try {
     const db = await getDb();
     const campaignsCol = db.collection("emailCampaigns");
@@ -38,13 +56,15 @@ export async function GET(_req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireSuperadmin(req);
+  if ("response" in auth) return auth.response;
   try {
     const body = await req.json().catch(() => null);
     if (!body) {
       return NextResponse.json({ error: "Invalid request payload" }, { status: 400 });
     }
 
-    const { subject, htmlContent, target, singleEmail } = body;
+    const { subject, htmlContent, target, singleEmail, previewText } = body;
 
     if (!subject || typeof subject !== "string" || !subject.trim()) {
       return NextResponse.json({ error: "Subject line is required" }, { status: 400 });
@@ -53,6 +73,15 @@ export async function POST(req: NextRequest) {
     if (!htmlContent || typeof htmlContent !== "string" || !htmlContent.trim()) {
       return NextResponse.json({ error: "Email campaign body content is required" }, { status: 400 });
     }
+
+    const cleanContent = sanitizeCampaignHtml(htmlContent);
+    if (!cleanContent) {
+      return NextResponse.json({ error: "Email campaign body content is empty" }, { status: 400 });
+    }
+    const finalHtml = buildMarketingEmail({
+      contentHtml: cleanContent,
+      previewText: typeof previewText === "string" ? previewText : subject,
+    });
 
     if (!["all", "form-buyers", "single"].includes(target)) {
       return NextResponse.json({ error: "Invalid target selected" }, { status: 400 });
@@ -65,19 +94,15 @@ export async function POST(req: NextRequest) {
       if (!singleEmail || typeof singleEmail !== "string" || !singleEmail.trim()) {
         return NextResponse.json({ error: "Recipient email is required for single target" }, { status: 400 });
       }
-      emails = [singleEmail.trim()];
+      emails = normalizeEmails([singleEmail]);
     } else if (target === "all") {
       const usersCol = db.collection("users");
-      const users = await usersCol.find({}, { projection: { email: 1 } }).toArray();
-      emails = users
-        .map((u) => u.email?.trim())
-        .filter(Boolean) as string[];
+      const users = await usersCol.find(nonStaffUserFilter(), { projection: { email: 1 } }).toArray();
+      emails = normalizeEmails(users.map((u) => u.email));
     } else if (target === "form-buyers") {
       const voucherPaymentsCol = db.collection("voucherPayments");
       const payments = await voucherPaymentsCol.find({}, { projection: { email: 1 } }).toArray();
-      emails = Array.from(
-        new Set(payments.map((p) => p.email?.trim()).filter(Boolean))
-      ) as string[];
+      emails = normalizeEmails(payments.map((p) => p.email));
     }
 
     if (emails.length === 0) {
@@ -100,7 +125,7 @@ export async function POST(req: NextRequest) {
             const result = await sendCampaignEmail({
               to: email,
               subject,
-              html: htmlContent,
+              html: finalHtml,
             });
 
             if (result && result.error) {
@@ -127,7 +152,9 @@ export async function POST(req: NextRequest) {
 
     const campaignDoc = {
       subject,
-      contentHtml: htmlContent,
+      contentHtml: cleanContent,
+      previewText: typeof previewText === "string" ? previewText.trim() : "",
+      createdBy: auth.user.username,
       target,
       singleEmail: target === "single" ? singleEmail : null,
       totalEmails: emails.length,
