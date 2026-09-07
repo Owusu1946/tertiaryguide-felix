@@ -619,7 +619,7 @@ export function ExploreFeed({
     }
   }
 
-  async function submitExploreComment(text: string, parentId: string | null = null) {
+  async function submitExploreComment(parentId: string | null, text: string) {
     if (!openCommentsId || !text.trim()) return;
     const email = getStoredUserEmail();
     if (!email) {
@@ -660,7 +660,7 @@ export function ExploreFeed({
     e.preventDefault();
     if (!commentText.trim() || commentBusy) return;
     setCommentBusy(true);
-    try { await submitExploreComment(commentText); setCommentText(""); } catch { /* keep text for retry */ } finally { setCommentBusy(false); }
+    try { await submitExploreComment(null, commentText); setCommentText(""); } catch { /* keep text for retry */ } finally { setCommentBusy(false); }
   }
 
   async function toggleCommentLike(commentId: string) {
