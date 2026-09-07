@@ -70,10 +70,12 @@ type ExplorePost = {
 
 type ExploreComment = {
   id: string;
+  parentId: string | null;
   userName: string;
   userAvatar: string;
   userEmail: string;
   text: string;
+  likes: string[];
   createdAt: string;
 };
 
@@ -90,6 +92,31 @@ function timeAgo(iso: string) {
     day: "numeric",
     month: "short",
   });
+}
+
+function ExploreCommentItem({ comment, comments, currentEmail, currentAvatar, onReply, onLike, depth = 0 }: { comment: ExploreComment; comments: ExploreComment[]; currentEmail: string | null; currentAvatar: string; onReply: (parentId: string, text: string) => Promise<void>; onLike: (commentId: string) => Promise<void>; depth?: number }) {
+  const [replying, setReplying] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  const replies = comments.filter((item) => item.parentId === comment.id);
+  const liked = Boolean(currentEmail && comment.likes.includes(currentEmail));
+  const submit = async () => {
+    if (!replyText.trim() || busy) return;
+    setBusy(true);
+    try { await onReply(comment.id, replyText.trim()); setReplyText(""); setReplying(false); setExpanded(true); } catch { /* keep the draft for retry */ } finally { setBusy(false); }
+  };
+  return <div className={depth ? "ml-7 border-l border-[#E5E7EB] pl-3" : ""}>
+    <div className="flex gap-2.5">
+      <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-gray-100"><OptimizedImage src={comment.userAvatar || "/hero/avatar.png"} alt="" fill sizes="32px" className="object-cover" /></div>
+      <div className="min-w-0 flex-1">
+        <div className="rounded-2xl bg-[#F3F4F6] px-3 py-2"><p className="text-xs font-semibold text-[#111827]">{comment.userName}</p><p className="mt-0.5 whitespace-pre-wrap text-sm leading-snug text-[#111827]">{comment.text}</p></div>
+        <div className="mt-1 flex items-center gap-3 px-2 text-[11px] text-[#6B7280]"><button type="button" onClick={() => void onLike(comment.id)} className={`inline-flex items-center gap-1 font-medium transition hover:text-[#111827] ${liked ? "text-[#007AFF]" : ""}`}><Heart className="h-3.5 w-3.5" fill={liked ? "currentColor" : "none"} />{comment.likes.length || "Like"}</button><button type="button" onClick={() => setReplying((value) => !value)} className="font-medium hover:text-[#111827]">Reply</button><span>{timeAgo(comment.createdAt)}</span></div>
+        {replying && <div className="mt-2 flex items-center gap-2"><div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full bg-gray-100"><OptimizedImage src={currentAvatar} alt="" fill sizes="28px" className="object-cover" /></div><input autoFocus value={replyText} onChange={(event) => setReplyText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void submit(); } }} placeholder={`Reply to ${comment.userName}…`} className="min-w-0 flex-1 rounded-full border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-sm outline-none focus:border-[#007AFF]" /><button type="button" onClick={() => void submit()} disabled={busy || !replyText.trim()} className="text-[#007AFF] disabled:opacity-40">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}</button></div>}
+      </div>
+    </div>
+    {replies.length > 0 && <div className="mt-2 space-y-3">{depth === 0 && <button type="button" onClick={() => setExpanded((value) => !value)} className="ml-11 text-xs font-medium text-[#6B7280] hover:text-[#111827]">{expanded ? "Hide" : "View"} {replies.length} {replies.length === 1 ? "reply" : "replies"}</button>}{expanded && replies.map((reply) => <ExploreCommentItem key={reply.id} comment={reply} comments={comments} currentEmail={currentEmail} currentAvatar={currentAvatar} onReply={onReply} onLike={onLike} depth={depth + 1} />)}</div>}
+  </div>;
 }
 
 type MediaShape = "portrait" | "landscape" | "square";
@@ -592,16 +619,18 @@ export function ExploreFeed({
     }
   }
 
-  async function submitComment(e: React.FormEvent) {
-    e.preventDefault();
-    if (!openCommentsId || !commentText.trim() || commentBusy) return;
+  async function submitExploreComment(text: string, parentId: string | null = null) {
+    if (!openCommentsId || !text.trim()) return;
     const email = getStoredUserEmail();
     if (!email) {
       window.location.href = signInRedirectHref("/?tab=explore");
       return;
     }
 
-    setCommentBusy(true);
+    const avatar = typeof window !== "undefined" ? window.localStorage.getItem("tg_user_avatar") || "/hero/avatar.png" : "/hero/avatar.png";
+    const tempId = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimistic: ExploreComment = { id: tempId, parentId, userEmail: email, userName: getStoredUserName() || email.split("@")[0], userAvatar: avatar, text: text.trim(), likes: [], createdAt: new Date().toISOString() };
+    setComments((prev) => [...prev, optimistic]);
     try {
       const res = await fetch(`/api/explore/posts/${openCommentsId}/comments`, {
         method: "POST",
@@ -609,18 +638,14 @@ export function ExploreFeed({
         body: JSON.stringify({
           email,
           userName: getStoredUserName() || email.split("@")[0],
-          userAvatar:
-            typeof window !== "undefined"
-              ? window.localStorage.getItem("tg_user_avatar") ||
-                "/hero/avatar.png"
-              : "/hero/avatar.png",
-          text: commentText.trim(),
+          userAvatar: avatar,
+          parentId,
+          text: text.trim(),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to comment");
-      setComments((prev) => [...prev, data.comment]);
-      setCommentText("");
+      setComments((prev) => prev.map((item) => item.id === tempId ? data.comment : item));
       setPosts((prev) =>
         prev.map((p) =>
           p.id === openCommentsId
@@ -628,11 +653,25 @@ export function ExploreFeed({
             : p,
         ),
       );
-    } catch {
-      // leave composer open
-    } finally {
-      setCommentBusy(false);
-    }
+    } catch { setComments((prev) => prev.filter((item) => item.id !== tempId)); throw new Error("Failed to post comment"); }
+  }
+
+  async function submitComment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!commentText.trim() || commentBusy) return;
+    setCommentBusy(true);
+    try { await submitExploreComment(commentText); setCommentText(""); } catch { /* keep text for retry */ } finally { setCommentBusy(false); }
+  }
+
+  async function toggleCommentLike(commentId: string) {
+    const email = getStoredUserEmail();
+    if (!email) { window.location.href = signInRedirectHref("/?tab=explore"); return; }
+    const before = comments;
+    setComments((prev) => prev.map((item) => item.id === commentId ? { ...item, likes: item.likes.includes(email) ? item.likes.filter((value) => value !== email) : [...item.likes, email] } : item));
+    try {
+      const res = await fetch(`/api/explore/posts/${openCommentsId}/comments`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ commentId, email }) });
+      if (!res.ok) throw new Error();
+    } catch { setComments(before); }
   }
 
   // On the homepage mid-page section, hide when empty.
@@ -991,26 +1030,8 @@ export function ExploreFeed({
                   No comments yet. Start the conversation.
                 </p>
               ) : (
-                comments.map((c) => (
-                  <div key={c.id} className="flex gap-2.5">
-                    <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-gray-100">
-                      <OptimizedImage
-                        src={c.userAvatar || "/hero/avatar.png"}
-                        alt=""
-                        fill
-                        sizes="32px"
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1 rounded-2xl bg-[#F3F4F6] px-3 py-2">
-                      <p className="text-xs font-semibold text-[#111827]">
-                        {c.userName}
-                      </p>
-                      <p className="mt-0.5 whitespace-pre-wrap text-sm leading-snug text-[#111827]">
-                        {c.text}
-                      </p>
-                    </div>
-                  </div>
+                comments.filter((comment) => !comment.parentId).map((comment) => (
+                  <ExploreCommentItem key={comment.id} comment={comment} comments={comments} currentEmail={getStoredUserEmail()} currentAvatar={typeof window !== "undefined" ? window.localStorage.getItem("tg_user_avatar") || "/hero/avatar.png" : "/hero/avatar.png"} onReply={submitExploreComment} onLike={toggleCommentLike} />
                 ))
               )}
             </div>

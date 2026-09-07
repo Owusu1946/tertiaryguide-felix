@@ -29,6 +29,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       comments: comments.map((c) => ({
         id: String(c._id),
         postId: String(c.postId),
+        parentId: c.parentId ? String(c.parentId) : null,
         userEmail: c.userEmail,
         userName: c.userName,
         userAvatar: c.userAvatar || "/hero/avatar.png",
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         ? body.userAvatar.trim()
         : "/hero/avatar.png";
     const text = typeof body.text === "string" ? body.text.trim() : "";
+    const parentId = typeof body.parentId === "string" && ObjectId.isValid(body.parentId) ? new ObjectId(body.parentId) : null;
 
     if (!email) {
       return NextResponse.json(
@@ -84,10 +86,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (!post) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
+    if (parentId) {
+      const parent = await exploreCommentsCollection(db).findOne({ _id: parentId, postId: new ObjectId(id) });
+      if (!parent) return NextResponse.json({ error: "Parent comment not found" }, { status: 404 });
+    }
 
     const now = new Date();
     const doc = {
       postId: new ObjectId(id),
+      parentId,
       userEmail: email,
       userName: userName || email.split("@")[0] || "User",
       userAvatar,
@@ -107,6 +114,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       comment: {
         id: String(result.insertedId),
         postId: id,
+        parentId: parentId ? String(parentId) : null,
         userEmail: doc.userEmail,
         userName: doc.userName,
         userAvatar: doc.userAvatar,
@@ -121,5 +129,27 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       { error: "Failed to post comment" },
       { status: 500 },
     );
+  }
+}
+
+export async function PATCH(req: NextRequest, ctx: Ctx) {
+  try {
+    const { id } = await ctx.params;
+    const body = await req.json().catch(() => ({}));
+    const commentId = typeof body.commentId === "string" ? body.commentId : "";
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    if (!ObjectId.isValid(id) || !ObjectId.isValid(commentId) || !email) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    const db = await getDb();
+    const comments = exploreCommentsCollection(db);
+    const filter = { _id: new ObjectId(commentId), postId: new ObjectId(id) };
+    const current = await comments.findOne(filter, { projection: { likes: 1 } });
+    if (!current) return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    const liked = !(current.likes || []).includes(email);
+    if (liked) await comments.updateOne(filter, { $addToSet: { likes: email } });
+    else await comments.updateOne(filter, { $pull: { likes: email } });
+    return NextResponse.json({ ok: true, liked, likeCount: Math.max(0, (current.likes || []).length + (liked ? 1 : -1)) });
+  } catch (error) {
+    console.error("[explore/posts/:id/comments] PATCH error", error);
+    return NextResponse.json({ error: "Failed to update comment like" }, { status: 500 });
   }
 }

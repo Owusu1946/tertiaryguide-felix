@@ -35,6 +35,11 @@ export async function POST(req: NextRequest) {
         }
 
         const db = await getDb();
+        if (parentId) {
+            if (!ObjectId.isValid(parentId) || !(await db.collection("blogComments").findOne({ _id: new ObjectId(parentId), postId }))) {
+                return NextResponse.json({ error: "Parent comment not found" }, { status: 404 });
+            }
+        }
         const newComment = {
             postId,
             parentId: parentId || null,
@@ -48,7 +53,7 @@ export async function POST(req: NextRequest) {
 
         const result = await db.collection("blogComments").insertOne(newComment);
 
-        return NextResponse.json({ ok: true, comment: { ...newComment, id: result.insertedId } }, { status: 201 });
+        return NextResponse.json({ ok: true, comment: { ...newComment, _id: String(result.insertedId), createdAt: newComment.createdAt.toISOString() } }, { status: 201 });
     } catch (error) {
         console.error("[blog/comments] POST error", error);
         return NextResponse.json({ error: "Failed to post comment" }, { status: 500 });

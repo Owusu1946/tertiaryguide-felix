@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { ThumbsUp, MessageSquare, Reply, SendHorizontal, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { ThumbsUp, SendHorizontal, Loader2 } from "lucide-react";
 
 export type BlogComment = {
     _id: string;
@@ -108,7 +108,7 @@ export function CommentItem({ comment, allComments, onReply, onLike, currentUser
                             className="flex items-center gap-2 mt-2 text-[13px] font-bold text-[#65676B] hover:underline"
                         >
                             <div className="flex -space-x-1">
-                                {replies.slice(0, 2).map((r, i) => (
+                                {replies.slice(0, 2).map((r) => (
                                     <div key={r._id} className="relative h-4 w-4 rounded-full border border-white overflow-hidden bg-gray-200">
                                         <Image src={r.userAvatar || "/woman.png"} fill unoptimized alt="" className="object-cover" />
                                     </div>

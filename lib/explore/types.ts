@@ -51,6 +51,7 @@ export type ExplorePostDoc = {
 export type ExploreCommentDoc = {
   _id?: ObjectId;
   postId: ObjectId;
+  parentId?: ObjectId | null;
   userEmail: string;
   userName: string;
   userAvatar: string;

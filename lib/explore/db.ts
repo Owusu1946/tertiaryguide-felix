@@ -20,5 +20,6 @@ export async function ensureExploreIndexes(db: Db) {
     posts.createIndex({ createdAt: -1 }),
     posts.createIndex({ postType: 1, status: 1 }),
     comments.createIndex({ postId: 1, createdAt: 1 }),
+    comments.createIndex({ postId: 1, parentId: 1, createdAt: 1 }),
   ]);
 }
