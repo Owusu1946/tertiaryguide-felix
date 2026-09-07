@@ -19,6 +19,13 @@ function normalizeEmails(values: unknown[]): string[] {
     .filter((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))));
 }
 
+function normalizeFooter(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  const keys = ["location", "phone", "phoneSecondary", "email", "instagram", "facebook", "twitter", "tiktok", "youtube"];
+  return Object.fromEntries(keys.map((key) => [key, typeof raw[key] === "string" ? raw[key].trim().slice(0, 300) : ""]));
+}
+
 export async function GET(req: NextRequest) {
   const auth = await requireSuperadmin(req);
   if ("response" in auth) return auth.response;
@@ -64,7 +71,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid request payload" }, { status: 400 });
     }
 
-    const { subject, htmlContent, target, singleEmail, previewText } = body;
+    const { subject, htmlContent, target, singleEmail, previewText, footer } = body;
 
     if (!subject || typeof subject !== "string" || !subject.trim()) {
       return NextResponse.json({ error: "Subject line is required" }, { status: 400 });
@@ -78,9 +85,11 @@ export async function POST(req: NextRequest) {
     if (!cleanContent) {
       return NextResponse.json({ error: "Email campaign body content is empty" }, { status: 400 });
     }
+    const cleanFooter = normalizeFooter(footer);
     const finalHtml = buildMarketingEmail({
       contentHtml: cleanContent,
       previewText: typeof previewText === "string" ? previewText : subject,
+      footer: cleanFooter,
     });
 
     if (!["all", "form-buyers", "single"].includes(target)) {
@@ -154,6 +163,7 @@ export async function POST(req: NextRequest) {
       subject,
       contentHtml: cleanContent,
       previewText: typeof previewText === "string" ? previewText.trim() : "",
+      footer: cleanFooter,
       createdBy: auth.user.username,
       target,
       singleEmail: target === "single" ? singleEmail : null,

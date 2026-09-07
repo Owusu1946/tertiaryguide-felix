@@ -1770,10 +1770,40 @@ export async function sendCampaignEmail(opts: {
 export function buildMarketingEmail(opts: {
   contentHtml: string;
   previewText?: string;
+  footer?: {
+    location?: string;
+    phone?: string;
+    phoneSecondary?: string;
+    email?: string;
+    instagram?: string;
+    facebook?: string;
+    twitter?: string;
+    tiktok?: string;
+    youtube?: string;
+  };
 }): string {
   const siteUrl = absoluteUrl("/");
   const preferencesUrl = absoluteUrl("/dashboard/notification");
   const preview = escapeHtml(opts.previewText?.trim() || "Updates from TertiaryGuide");
+  const footer = {
+    location: "Ho, Trafalgar, Ghana",
+    phone: "+233 59 511 0767",
+    phoneSecondary: "+233 24 896 7314",
+    email: "info@tertiaryguide.com",
+    instagram: "https://www.instagram.com/tertiaryguide1",
+    facebook: "https://www.facebook.com/share/1EAdiVWy5T/",
+    twitter: "https://x.com/TertiaryGuide1",
+    tiktok: "https://www.tiktok.com/@tertiaryguide",
+    youtube: "https://youtube.com/@tertiaryguide",
+    ...opts.footer,
+  };
+  const safeUrl = (value: string) => escapeHtml(value.trim());
+  const socialLinks = [
+    ["Instagram", footer.instagram], ["Facebook", footer.facebook], ["X", footer.twitter],
+    ["TikTok", footer.tiktok], ["YouTube", footer.youtube],
+  ].filter(([, url]) => typeof url === "string" && url.trim())
+    .map(([label, url]) => `<a href="${safeUrl(url as string)}" style="color:#374151;text-decoration:none;">${label}</a>`)
+    .join(" &nbsp;|&nbsp; ");
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TertiaryGuide</title></head>
@@ -1786,6 +1816,9 @@ export function buildMarketingEmail(opts: {
 <tr><td style="padding:22px 28px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.5;">
 <p style="margin:0 0 8px;"><strong style="color:#374151;">TertiaryGuide</strong></p>
 <p style="margin:0 0 8px;">Guiding your next step in tertiary education.</p>
+<p style="margin:0 0 6px;">${escapeHtml(footer.location || "")} &nbsp;|&nbsp; ${escapeHtml(footer.phone || "")} ${footer.phoneSecondary ? `&nbsp;|&nbsp; ${escapeHtml(footer.phoneSecondary)}` : ""}</p>
+<p style="margin:0 0 8px;"><a href="mailto:${safeUrl(footer.email || "")}" style="color:#374151;">${escapeHtml(footer.email || "")}</a></p>
+<p style="margin:0 0 8px;">${socialLinks}</p>
 <p style="margin:0;"><a href="${siteUrl}" style="color:#374151;">Visit TertiaryGuide</a> &nbsp;|&nbsp; <a href="${preferencesUrl}" style="color:#374151;">Manage email preferences</a></p>
 </td></tr></table></td></tr></table></body></html>`;
 }
