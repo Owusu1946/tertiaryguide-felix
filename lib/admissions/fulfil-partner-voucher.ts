@@ -8,9 +8,12 @@ import {
   ensureAdmissionVoucherIndexes,
 } from "./vouchers";
 import { sendPartnerVoucherEmail } from "../email";
+import { absoluteUrl } from "../site-url";
 import type { AdmissionVoucherDoc, SchoolDoc } from "./types";
 import type { ProgrammeLevel } from "./programme-level";
 import { normalizeProgrammeLevel } from "./programme-level";
+import { createUserNotification } from "../user-notifications-server";
+import { PROGRAMME_LEVEL_LABELS } from "./programme-level";
 
 export type FulfilPartnerPaymentResult = {
   ok: true;
@@ -74,6 +77,12 @@ export async function fulfilPartnerVoucherPayment(opts: {
   }
 
   if (!voucher) {
+    voucher = await admissionVouchersCollection(db).findOne({
+      paymentReference: reference,
+    });
+  }
+
+  if (!voucher) {
     voucher = await createAdmissionVoucher({
       db,
       school,
@@ -106,6 +115,10 @@ export async function fulfilPartnerVoucherPayment(opts: {
     },
     { upsert: true },
   );
+
+  // Remove any mistaken university-form payment rows created for this reference
+  // (forms/verify used to claim partner payments before product routing was fixed).
+  await db.collection("voucherPayments").deleteMany({ reference });
 
   const emailResult = await sendVoucherEmailIfNeeded({
     db,
@@ -152,10 +165,14 @@ async function sendVoucherEmailIfNeeded(opts: {
     return { sent: true, error: null };
   }
 
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
   const slugOrId = school.slug || String(school._id);
-  const applyUrl = `${base}/apply?school=${encodeURIComponent(slugOrId)}&step=login`;
-  const portalUrl = `${base}/apply/portal?schoolId=${encodeURIComponent(String(school._id))}`;
+  const applyUrl = absoluteUrl(
+    `/apply?school=${encodeURIComponent(slugOrId)}&step=login`,
+  );
+  const portalUrl = absoluteUrl(
+    `/apply/portal?schoolId=${encodeURIComponent(String(school._id))}`,
+  );
+  const myFormsUrl = absoluteUrl("/dashboard/my-forms");
 
   try {
     await sendPartnerVoucherEmail({
@@ -166,6 +183,7 @@ async function sendVoucherEmailIfNeeded(opts: {
       serialNumber: voucher.serialNumber,
       applyUrl,
       portalUrl,
+      myFormsUrl,
     });
 
     await payments.updateOne(

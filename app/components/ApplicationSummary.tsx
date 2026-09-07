@@ -9,6 +9,9 @@ export type ApplicationSummaryDetail = {
   submittedAt?: string | null;
   updatedAt?: string | null;
   reviewNotes?: string | null;
+  admittedProgramme?: string | null;
+  admittedProgrammeStream?: string | null;
+  offerResponse?: "accepted" | "declined" | null;
   personalInfo?: Record<string, string | undefined> | null;
   guardianInfo?: Record<string, string | undefined> | null;
   programmeChoices?: Record<string, string | undefined> | null;

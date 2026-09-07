@@ -24,14 +24,14 @@ export async function GET(req: NextRequest) {
     const db = await getDb();
     await ensureAdmissionVoucherIndexes(db);
 
-    // Fetch university form payments
-    const formPayments = await db
+    // Fetch university form payments (exclude partner/secured schools — those use admissionVouchers)
+    const formPaymentsRaw = await db
       .collection("voucherPayments")
       .find({ email, status: "success" })
       .sort({ paidAt: -1 })
       .toArray();
 
-    const schoolIds = formPayments.map((p) => p.schoolId);
+    const schoolIds = formPaymentsRaw.map((p) => p.schoolId);
     const schools = await db
       .collection("schools")
       .find({ _id: { $in: schoolIds } })
@@ -45,9 +45,15 @@ export async function GET(req: NextRequest) {
           alias: s.alias ?? null,
           logo: s.logoSrc,
           slug: s.slug ?? null,
+          isPartner: Boolean(s.isPartner),
         },
       ]),
     );
+
+    const formPayments = formPaymentsRaw.filter((p) => {
+      const info = schoolMap[p.schoolId.toString()];
+      return !info?.isPartner;
+    });
 
     const enrichedFormPayments = formPayments.map((p) => {
       const schoolInfo = schoolMap[p.schoolId.toString()] || {
@@ -231,6 +237,9 @@ export async function GET(req: NextRequest) {
                   : null,
                 programmes: detail.programmes,
                 programme: detail.programme,
+                admittedProgramme: detail.admittedProgramme,
+                admittedProgrammeStream: detail.admittedProgrammeStream,
+                offerResponse: detail.offerResponse,
                 detail,
               };
             })()
@@ -354,6 +363,9 @@ export async function GET(req: NextRequest) {
             : null,
           programmes: detail.programmes,
           programme: detail.programme,
+          admittedProgramme: detail.admittedProgramme,
+          admittedProgrammeStream: detail.admittedProgrammeStream,
+          offerResponse: detail.offerResponse,
           detail,
         },
       };

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
+import { UserInitialsAvatar } from "@/app/components/UserInitialsAvatar";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowRight,
@@ -36,10 +37,16 @@ import {
 } from "@/lib/last-purchase-badges";
 import { NotificationInbox } from "@/app/components/NotificationInbox";
 import {
+  deleteServerNotification,
+  fetchServerNotifications,
+  isMongoNotificationId,
+  mergeNotificationLists,
+  patchServerNotification,
   readUserNotifications,
   resolveNotificationHref,
   unreadCount,
   userNotificationsKey,
+  writeUserNotifications,
   type AppNotification,
 } from "@/lib/notifications";
 
@@ -107,8 +114,8 @@ function TertiaryLogo() {
         height={163}
         priority
         quality={100}
-        sizes="(max-width: 768px) 172px, 216px"
-        className="h-8 w-auto bg-transparent object-contain cursor-pointer md:h-10"
+        sizes="(max-width: 768px) 120px, 148px"
+        className="h-5 w-auto bg-transparent object-contain cursor-pointer md:h-7"
       />
     </Link>
   );
@@ -131,7 +138,8 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
   const headerRef = useRef<HTMLElement | null>(null);
   const [lastVoucher, setLastVoucher] = useState<LastVoucherStored | null>(null);
   const [lastChecker, setLastChecker] = useState<LastCheckerStored | null>(null);
-  const [avatar, setAvatar] = useState("/hero/avatar.png");
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -168,18 +176,21 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
   }, []);
 
   useEffect(() => {
-    const updateAvatar = () => {
-      if (typeof window !== "undefined") {
-        const stored = window.localStorage.getItem("tg_user_avatar");
-        if (stored) {
-          setAvatar(stored);
-          setIsLoaded(true);
-        }
-      }
+    const updateProfile = () => {
+      if (typeof window === "undefined") return;
+      const storedName = window.localStorage.getItem("tg_user_name");
+      const storedEmail = window.localStorage.getItem("tg_user_email");
+      if (storedName) setUserName(storedName);
+      if (storedEmail) setUserEmail(storedEmail);
+      setIsLoaded(true);
     };
-    updateAvatar();
-    window.addEventListener("tg-profile-updated", updateAvatar);
-    return () => window.removeEventListener("tg-profile-updated", updateAvatar);
+    updateProfile();
+    window.addEventListener("tg-profile-updated", updateProfile);
+    window.addEventListener("tg_user_name_updated", updateProfile);
+    return () => {
+      window.removeEventListener("tg-profile-updated", updateProfile);
+      window.removeEventListener("tg_user_name_updated", updateProfile);
+    };
   }, []);
 
   useEffect(() => {
@@ -483,33 +494,51 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastChecker?.pending, lastChecker?.reference]);
 
-  // Load saved notifications so the bell and drawer stay in sync.
+  // Load + poll server notifications so the bell count stays live.
   useEffect(() => {
+    let cancelled = false;
+
     const loadNotifications = async () => {
       try {
         if (typeof window === "undefined") return;
         const email = window.localStorage.getItem("tg_user_email");
         if (!email) {
-          setHasNewsNotification(false);
-          setUserNotifications([]);
+          if (!cancelled) {
+            setHasNewsNotification(false);
+            setUserNotifications([]);
+          }
           return;
         }
 
-        const items = readUserNotifications(email);
-        setUserNotifications(items);
+        const local = readUserNotifications(email);
+        let next = local;
+        try {
+          const server = await fetchServerNotifications(email);
+          next = mergeNotificationLists(server, local);
+          writeUserNotifications(email, next, { silent: true });
+        } catch {
+          // keep local fallback
+        }
+
+        if (cancelled) return;
+        setUserNotifications(next);
 
         try {
           const res = await fetch(
             `/api/notification/preferences?email=${encodeURIComponent(email)}`,
           );
           const data = await res.json();
-          setHasNewsNotification(Boolean(res.ok && data.newsUpdates));
+          if (!cancelled) {
+            setHasNewsNotification(Boolean(res.ok && data.newsUpdates));
+          }
         } catch {
-          setHasNewsNotification(false);
+          if (!cancelled) setHasNewsNotification(false);
         }
       } catch {
-        setHasNewsNotification(false);
-        setUserNotifications([]);
+        if (!cancelled) {
+          setHasNewsNotification(false);
+          setUserNotifications([]);
+        }
       }
     };
 
@@ -520,6 +549,9 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
     }
 
     void loadNotifications();
+    const poll = window.setInterval(() => {
+      void loadNotifications();
+    }, 12000);
 
     const handleUpdated = () => {
       void loadNotifications();
@@ -532,22 +564,20 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
       }
     };
 
-    if (typeof window !== "undefined") {
-      window.addEventListener(
+    window.addEventListener(
+      "tg-notifications-updated",
+      handleUpdated as EventListener,
+    );
+    window.addEventListener("storage", handleStorage as EventListener);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+      window.removeEventListener(
         "tg-notifications-updated",
         handleUpdated as EventListener,
       );
-      window.addEventListener("storage", handleStorage as EventListener);
-    }
-
-    return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener(
-          "tg-notifications-updated",
-          handleUpdated as EventListener,
-        );
-        window.removeEventListener("storage", handleStorage as EventListener);
-      }
+      window.removeEventListener("storage", handleStorage as EventListener);
     };
   }, [isAuthed]);
 
@@ -575,13 +605,49 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
     });
   };
 
+  const syncAndPersist = async (
+    updater: (current: AppNotification[]) => AppNotification[],
+    serverSync?: () => Promise<AppNotification[] | null>,
+  ) => {
+    persistNotifications(updater);
+    if (!serverSync) return;
+    const email =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("tg_user_email")
+        : null;
+    if (!email) return;
+    try {
+      const serverList = await serverSync();
+      if (!serverList) return;
+      const merged = mergeNotificationLists(
+        serverList,
+        readUserNotifications(email),
+      );
+      writeUserNotifications(email, merged);
+      setUserNotifications(merged);
+    } catch {
+      // local state already updated
+    }
+  };
+
   const notificationCount = unreadCount(userNotifications);
 
   const openNotification = (notification: AppNotification) => {
-    persistNotifications((current) =>
-      current.map((n) =>
-        n.id === notification.id ? { ...n, read: true } : n,
-      ),
+    void syncAndPersist(
+      (current) =>
+        current.map((n) =>
+          n.id === notification.id ? { ...n, read: true } : n,
+        ),
+      () => {
+        if (!isMongoNotificationId(notification.id)) return Promise.resolve(null);
+        const email = window.localStorage.getItem("tg_user_email");
+        if (!email) return Promise.resolve(null);
+        return patchServerNotification({
+          email,
+          action: "read",
+          id: notification.id,
+        });
+      },
     );
     setNotificationsOpen(false);
     router.push(resolveNotificationHref(notification));
@@ -781,24 +847,58 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
         <NotificationInbox
           items={userNotifications}
           onOpen={(item) => openNotification(item as AppNotification)}
-          onToggleRead={(id) =>
-            persistNotifications((current) =>
-              current.map((n) => (n.id === id ? { ...n, read: !n.read } : n)),
-            )
-          }
-          onDelete={(id) =>
-            persistNotifications((current) => current.filter((n) => n.id !== id))
-          }
-          onMarkAllRead={() =>
-            persistNotifications((current) =>
-              current.map((n) => ({ ...n, read: true })),
-            )
-          }
-          onMarkAllUnread={() =>
-            persistNotifications((current) =>
-              current.map((n) => ({ ...n, read: false })),
-            )
-          }
+          onToggleRead={(id) => {
+            const current = userNotifications.find((n) => n.id === id);
+            const nextRead = current ? !current.read : true;
+            void syncAndPersist(
+              (list) =>
+                list.map((n) => (n.id === id ? { ...n, read: nextRead } : n)),
+              () => {
+                if (!isMongoNotificationId(id)) return Promise.resolve(null);
+                const email = window.localStorage.getItem("tg_user_email");
+                if (!email) return Promise.resolve(null);
+                return patchServerNotification({
+                  email,
+                  action: nextRead ? "read" : "unread",
+                  id,
+                });
+              },
+            );
+          }}
+          onDelete={(id) => {
+            void syncAndPersist(
+              (list) => list.filter((n) => n.id !== id),
+              () => {
+                if (!isMongoNotificationId(id)) return Promise.resolve(null);
+                const email = window.localStorage.getItem("tg_user_email");
+                if (!email) return Promise.resolve(null);
+                return deleteServerNotification({ email, id });
+              },
+            );
+          }}
+          onMarkAllRead={() => {
+            void syncAndPersist(
+              (list) => list.map((n) => ({ ...n, read: true })),
+              () => {
+                const email = window.localStorage.getItem("tg_user_email");
+                if (!email) return Promise.resolve(null);
+                return patchServerNotification({ email, action: "read_all" });
+              },
+            );
+          }}
+          onMarkAllUnread={() => {
+            void syncAndPersist(
+              (list) => list.map((n) => ({ ...n, read: false })),
+              () => {
+                const email = window.localStorage.getItem("tg_user_email");
+                if (!email) return Promise.resolve(null);
+                return patchServerNotification({
+                  email,
+                  action: "unread_all",
+                });
+              },
+            );
+          }}
           onClearAll={() => {
             if (userNotifications.length === 0) return;
             if (
@@ -807,7 +907,14 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
             ) {
               return;
             }
-            persistNotifications(() => []);
+            void syncAndPersist(
+              () => [],
+              () => {
+                const email = window.localStorage.getItem("tg_user_email");
+                if (!email) return Promise.resolve(null);
+                return deleteServerNotification({ email, clearAll: true });
+              },
+            );
           }}
         />
 
@@ -1139,17 +1246,10 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
             )}
           </div>
           <Link href="/dashboard/personal-info" aria-label="Open personal info">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {!isLoaded && avatar === "/woman.png" ? (
+            {!isLoaded && !userName && !userEmail ? (
               <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />
             ) : (
-              <Image
-                src={avatar}
-                alt="Profile"
-                width={40}
-                height={40}
-                className="h-10 w-10 rounded-full object-cover"
-              />
+              <UserInitialsAvatar name={userName || userEmail} size="md" />
             )}
           </Link>
         </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "../../../../../lib/mongodb";
+import { notifyNewsOptInUsers } from "../../../../../lib/user-notifications-server";
 
 interface BlogPostDoc {
     _id?: ObjectId;
@@ -131,6 +132,7 @@ export async function PUT(
 
         const db = await getDb();
         const posts = db.collection<BlogPostDoc>("blogPosts");
+        const existing = await posts.findOne({ _id: new ObjectId(id) });
 
         const result = await posts.findOneAndUpdate(
             { _id: new ObjectId(id) },
@@ -157,6 +159,20 @@ export async function PUT(
             return NextResponse.json(
                 { error: "Blog post not found or update failed" },
                 { status: 404 },
+            );
+        }
+
+        const becamePublished =
+            status === "Published" && existing?.status !== "Published";
+        if (becamePublished) {
+            void notifyNewsOptInUsers(db, {
+                title: "New on TertiaryGuide News",
+                body: titleRaw,
+                kind: "news",
+                href: `/blog/${updatedDoc.slug || id}`,
+                dedupeKey: `blog-post:${id}`,
+            }).catch((err) =>
+                console.error("[admin/blog-posts/[id]] notify users", err),
             );
         }
 

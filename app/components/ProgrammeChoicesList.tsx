@@ -41,7 +41,7 @@ export function ProgrammeChoicesList({
           {programmes.map((item) => (
             <li
               key={`${item.rank}-${item.display}`}
-              className="flex h-full min-h-[92px] items-start gap-3 rounded-2xl border border-[#EEF2F7] bg-white px-3.5 py-3"
+              className="flex h-full min-h-[100px] items-start gap-3 rounded-2xl border border-white bg-white px-3.5 py-3.5 shadow-[0_5px_16px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
             >
               <span
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${

@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { SlidersHorizontal, Trash2 } from "lucide-react";
 import { adminFetch } from "../../lib/admin-client";
-import { AdminManageSchoolsSection } from "./AdminManageSchoolsSection";
 
 type FormStatus = "Issued" | "Unissued";
 type FormType = "Voucher";
@@ -36,16 +35,7 @@ function statusPill(status: FormStatus) {
   );
 }
 
-type ManageSchoolsViewProps = {
-  onBack: () => void;
-};
-
-function ManageSchoolsView({ onBack }: ManageSchoolsViewProps) {
-  return <AdminManageSchoolsSection onBack={onBack} />;
-}
-
 export default function AdminFormsSection() {
-  const [activeView, setActiveView] = useState<"table" | "manage">("table");
   const [activeTab, setActiveTab] = useState<"vouchers" | "payments">(
     "vouchers",
   );
@@ -203,7 +193,7 @@ export default function AdminFormsSection() {
 
   useEffect(() => {
     setSelectedFormIds([]);
-  }, [activeView]);
+  }, [activeTab, activeStatus]);
 
   useEffect(() => {
     let cancelled = false;
@@ -452,7 +442,7 @@ export default function AdminFormsSection() {
     const ready = fulfilmentQueue?.readyToFulfill ?? 0;
     if (ready === 0) {
       window.alert(
-        "No pending orders can be fulfilled right now. Add unissued vouchers under Manage Schools first.",
+        "No pending orders can be fulfilled right now. Add unissued vouchers under the Manage schools tab first.",
       );
       return;
     }
@@ -493,7 +483,6 @@ export default function AdminFormsSection() {
 
   function selectVoucherStatusFilter(status: FormStatus | "all") {
     setActiveStatus(status);
-    setActiveView("table");
     setActiveTab("vouchers");
   }
 
@@ -505,9 +494,6 @@ export default function AdminFormsSection() {
           Dashboard /
           {" "}
           <span className="text-[#111827]">Voucher Orders</span>
-          {activeView === "manage" && (
-            <span className="text-[#111827]"> / Manage Schools</span>
-          )}
         </p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[#007AFF] md:text-3xl">
           Voucher Orders
@@ -517,8 +503,7 @@ export default function AdminFormsSection() {
         </p>
       </section>
 
-      {activeView === "table" &&
-        displayPendingCount > 0 &&
+      {displayPendingCount > 0 &&
         !paymentsLoading &&
         activeTab === "vouchers" && (
           <div className="mt-4 rounded-3xl border border-amber-200/80 bg-gradient-to-r from-[#FFF7D6] to-[#FFFBEB] px-4 py-4 text-sm text-[#92400E] shadow-sm">
@@ -608,35 +593,13 @@ export default function AdminFormsSection() {
               Delete {selectedFormIds.length} selected
             </button>
           )}
-          {activeView === "table" && (
-            <button
-              type="button"
-              onClick={handleRefreshForms}
-              className="inline-flex items-center justify-center rounded-full border border-[#E5E7EB] px-3 py-2 text-xs font-medium text-[#111827] hover:bg-[#F3F4F6]"
-            >
-              Refresh
-            </button>
-          )}
-          {activeView === "table" ? (
-            <button
-              type="button"
-              className="inline-flex items-center justify-center rounded-full bg-[#007AFF] px-4 py-2 text-xs font-medium text-white hover:bg-[#0062CC]"
-              onClick={() => setActiveView("manage")}
-            >
-              Manage Schools
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="inline-flex items-center justify-center rounded-full border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-medium text-[#111827] hover:bg-[#F3F4F6]"
-              onClick={() => {
-                setActiveView("table");
-                setActiveTab("vouchers");
-              }}
-            >
-              Back to voucher list
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleRefreshForms}
+            className="inline-flex items-center justify-center rounded-full border border-[#E5E7EB] px-3 py-2 text-xs font-medium text-[#111827] hover:bg-[#F3F4F6]"
+          >
+            Refresh
+          </button>
           <button
             type="button"
             onClick={openFilters}
@@ -648,8 +611,7 @@ export default function AdminFormsSection() {
         </div>
       </section>
 
-      {activeView === "table" ? (
-        <>
+      <>
           <section className="mt-6 min-w-0 overflow-hidden rounded-3xl border border-[#DBEAFE] bg-white shadow-sm">
             <div className="flex flex-col gap-3 border-b border-[#EEF4FF] bg-gradient-to-r from-[#F8FBFF] to-white px-3 pt-3 pb-3 text-xs text-[#6B7280] sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:pt-4">
               <div className="inline-flex w-fit max-w-full items-center overflow-x-auto rounded-full bg-[#EEF4FF] p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -1072,9 +1034,6 @@ export default function AdminFormsSection() {
             </div>
           </section>
         </>
-      ) : (
-        <ManageSchoolsView onBack={() => setActiveView("table")} />
-      )}
 
       {filtersOpen && (
         <>

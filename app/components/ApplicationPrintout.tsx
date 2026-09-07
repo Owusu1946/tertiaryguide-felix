@@ -11,6 +11,18 @@ import {
   type ApplicationPrintoutSchool,
   type PrintField,
 } from "@/lib/admissions/printout-data";
+import {
+  DECLARATION_CERTIFY,
+  DECLARATION_FALSEHOOD,
+  DECLARATION_HEADING,
+  DECLARATION_IMPORTANT_BODY,
+  DECLARATION_IMPORTANT_HEADING,
+  DECLARATION_PERMISSION_AFTER,
+  DECLARATION_PERMISSION_BEFORE,
+  certificateNameOrder,
+  declarationSchoolLabel,
+  declarationSignedParts,
+} from "@/lib/admissions/declaration";
 
 export {
   academicYearLabel,
@@ -40,6 +52,19 @@ function FieldList({ rows }: { rows: PrintField[] }) {
       ))}
     </dl>
   );
+}
+
+function printFieldValue(rows: PrintField[], label: string) {
+  return rows.find((row) => row.label === label)?.value || "";
+}
+
+function certificateNameFromPrintout(data: ApplicationPrintoutData) {
+  return certificateNameOrder({
+    title: printFieldValue(data.personal, "Title"),
+    surname: printFieldValue(data.personal, "Surname"),
+    firstName: printFieldValue(data.personal, "Firstname"),
+    middleName: printFieldValue(data.personal, "Middle Names"),
+  });
 }
 
 function SectionTitle({
@@ -289,6 +314,48 @@ export function ApplicationPrintout({
           </div>
         ))}
       </section>
+
+      <section className="relative z-10 mt-5 border-t border-[#D1D5DB] pt-4">
+        <p className="text-[12px] font-bold uppercase tracking-wide text-[#B91C1C]">
+          {DECLARATION_IMPORTANT_HEADING}
+        </p>
+        <p className="mt-2 text-[12px] font-semibold leading-relaxed text-[#B91C1C]">
+          {DECLARATION_IMPORTANT_BODY}
+        </p>
+        <div className="mt-4">
+          <SectionTitle brand={brand} soft={soft}>
+            {DECLARATION_HEADING}
+          </SectionTitle>
+          <div className="space-y-3 text-[12px] leading-relaxed text-[#334155]">
+            <p>{DECLARATION_CERTIFY}</p>
+            <p>
+              {DECLARATION_PERMISSION_BEFORE}
+              <strong className="font-bold text-[#111827]">
+                {declarationSchoolLabel(school.name)}
+              </strong>
+              {DECLARATION_PERMISSION_AFTER}
+            </p>
+            <p>{DECLARATION_FALSEHOOD}</p>
+            <p className="font-semibold text-[#111827]">
+              {(() => {
+                const signed = declarationSignedParts(
+                  certificateNameFromPrintout(data),
+                );
+                return (
+                  <>
+                    {signed.before}
+                    {signed.name}{" "}
+                    <span className="font-semibold text-[#B91C1C]">
+                      {signed.hint}
+                    </span>
+                    {signed.after}
+                  </>
+                );
+              })()}
+            </p>
+          </div>
+        </div>
+      </section>
     </article>
   );
 }
@@ -503,6 +570,36 @@ function buildPrintoutHtml(opts: {
             }`,
         )
         .join("")}
+    </section>
+    <section>
+      <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#B91C1C;">${escapeHtml(
+        DECLARATION_IMPORTANT_HEADING,
+      )}</p>
+      <p style="margin:8px 0 14px;font-size:12px;font-weight:600;line-height:1.55;color:#B91C1C;">${escapeHtml(
+        DECLARATION_IMPORTANT_BODY,
+      )}</p>
+      <span class="box">${escapeHtml(DECLARATION_HEADING)}</span>
+      <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#334155;">${escapeHtml(
+        DECLARATION_CERTIFY,
+      )}</p>
+      <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#334155;">${escapeHtml(
+        DECLARATION_PERMISSION_BEFORE,
+      )}<strong style="font-weight:700;color:#111827;">${escapeHtml(
+        declarationSchoolLabel(school.name),
+      )}</strong>${escapeHtml(DECLARATION_PERMISSION_AFTER)}</p>
+      <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#334155;">${escapeHtml(
+        DECLARATION_FALSEHOOD,
+      )}</p>
+      ${(() => {
+        const signed = declarationSignedParts(
+          certificateNameFromPrintout(data),
+        );
+        return `<p style="margin:0;font-size:12px;line-height:1.55;font-weight:700;color:#111827;">${escapeHtml(
+          signed.before,
+        )}${escapeHtml(signed.name)} <span style="color:#B91C1C;font-weight:700;">${escapeHtml(
+          signed.hint,
+        )}</span>${escapeHtml(signed.after)}</p>`;
+      })()}
     </section>
   </div>
 </body>

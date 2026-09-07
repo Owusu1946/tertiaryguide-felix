@@ -66,7 +66,9 @@ export async function POST(req: NextRequest) {
 
     const amountPesewas = Math.round(priceGhs * 100);
     const slug = school.slug || schoolId;
-    const callbackUrl = paymentReturnCallbackUrl(returnOrigin);
+    const callbackUrl = paymentReturnCallbackUrl(returnOrigin, {
+      from: "partner",
+    });
 
     const tx = await initializePaystackTransaction({
       email,

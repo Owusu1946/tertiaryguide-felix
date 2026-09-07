@@ -2,6 +2,8 @@ export type AppNotificationKind =
   | "voucher"
   | "checker"
   | "news"
+  | "explore"
+  | "email"
   | "application"
   | "general";
 
@@ -52,13 +54,16 @@ export function readUserNotifications(email: string): AppNotification[] {
 export function writeUserNotifications(
   email: string,
   items: AppNotification[],
+  opts?: { silent?: boolean },
 ) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(
     userNotificationsKey(email),
     JSON.stringify(items.slice(0, 80)),
   );
-  window.dispatchEvent(new CustomEvent(USER_NOTIFICATIONS_UPDATED));
+  if (!opts?.silent) {
+    window.dispatchEvent(new CustomEvent(USER_NOTIFICATIONS_UPDATED));
+  }
 }
 
 export function resolveNotificationHref(n: AppNotification): string {
@@ -67,6 +72,8 @@ export function resolveNotificationHref(n: AppNotification): string {
   if (n.kind === "voucher") return "/dashboard/my-forms";
   if (n.kind === "application") return "/dashboard/my-applications";
   if (n.kind === "news") return "/blog";
+  if (n.kind === "explore") return "/explore";
+  if (n.kind === "email") return "/dashboard/notification";
 
   const haystack = `${n.id} ${n.title} ${n.body}`.toLowerCase();
   if (haystack.includes("wassce") || haystack.includes("checker")) {
@@ -74,6 +81,9 @@ export function resolveNotificationHref(n: AppNotification): string {
   }
   if (haystack.includes("application")) {
     return "/dashboard/my-applications";
+  }
+  if (haystack.includes("explore")) {
+    return "/explore";
   }
   if (
     haystack.includes("voucher") ||
@@ -88,6 +98,9 @@ export function resolveNotificationHref(n: AppNotification): string {
     haystack.includes("announcement")
   ) {
     return "/blog";
+  }
+  if (haystack.includes("email") || haystack.includes("campaign")) {
+    return "/dashboard/notification";
   }
   return "/dashboard/notification";
 }
@@ -124,4 +137,98 @@ export function resolveAdminNotificationSection(n: AdminNotification): string {
 
 export function unreadCount(items: { read: boolean }[]) {
   return items.filter((n) => !n.read).length;
+}
+
+/** Merge server notifications with any local-only items; server wins on id clash. */
+export function mergeNotificationLists(
+  server: AppNotification[],
+  local: AppNotification[],
+): AppNotification[] {
+  const byId = new Map<string, AppNotification>();
+  for (const item of local) {
+    byId.set(item.id, item);
+  }
+  for (const item of server) {
+    byId.set(item.id, item);
+  }
+  return Array.from(byId.values()).sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+export async function fetchServerNotifications(
+  email: string,
+): Promise<AppNotification[]> {
+  const res = await fetch(
+    `/api/user/notifications?email=${encodeURIComponent(email)}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data.notifications) ? data.notifications : [];
+}
+
+export async function pushServerNotification(input: {
+  email: string;
+  title: string;
+  body: string;
+  kind?: AppNotificationKind;
+  href?: string;
+  dedupeKey?: string;
+}): Promise<AppNotification | null> {
+  try {
+    const res = await fetch("/api/user/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data.notification as AppNotification) || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function patchServerNotification(input: {
+  email: string;
+  action: "read" | "unread" | "read_all" | "unread_all";
+  id?: string;
+}): Promise<AppNotification[] | null> {
+  try {
+    const res = await fetch("/api/user/notifications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data.notifications) ? data.notifications : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteServerNotification(input: {
+  email: string;
+  id?: string;
+  clearAll?: boolean;
+}): Promise<AppNotification[] | null> {
+  try {
+    const res = await fetch("/api/user/notifications", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data.notifications) ? data.notifications : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isMongoNotificationId(id: string) {
+  return /^[a-f\d]{24}$/i.test(id);
 }

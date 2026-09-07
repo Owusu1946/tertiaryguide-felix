@@ -13,6 +13,7 @@ import {
   type ExploreMedia,
   type ExplorePostType,
 } from "@/lib/explore/types";
+import { notifyAllStudents } from "@/lib/user-notifications-server";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -120,6 +121,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
     const db = await getDb();
     await ensureExploreIndexes(db);
+    const existing = await explorePostsCollection(db).findOne({
+      _id: new ObjectId(id),
+    });
     const result = await explorePostsCollection(db).findOneAndUpdate(
       { _id: new ObjectId(id) },
       { $set: updates },
@@ -128,6 +132,27 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
     if (!result) {
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
+    }
+
+    const becamePublished =
+      body.status === "Published" && existing?.status !== "Published";
+    if (becamePublished) {
+      const text =
+        typeof result.body === "string" ? result.body.trim() : "";
+      const snippet = text.slice(0, 120) || "A new update is live on Explore.";
+      const authorName =
+        typeof result.authorName === "string" && result.authorName.trim()
+          ? result.authorName.trim()
+          : "TertiaryGuide";
+      void notifyAllStudents(db, {
+        title: "New Explore post",
+        body: `${authorName}: ${snippet}${snippet.length >= 120 ? "…" : ""}`,
+        kind: "explore",
+        href: "/explore",
+        dedupeKey: `explore-post:${id}`,
+      }).catch((err) =>
+        console.error("[admin/explore-posts/:id] notify students", err),
+      );
     }
 
     return NextResponse.json({

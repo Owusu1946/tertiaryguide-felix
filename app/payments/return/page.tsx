@@ -16,6 +16,7 @@ function PaymentReturnContent() {
     searchParams.get("reference")?.trim() ||
     searchParams.get("trxref")?.trim() ||
     "";
+  const from = searchParams.get("from")?.trim() || "";
 
   const [error, setError] = useState<string | null>(null);
 
@@ -28,13 +29,19 @@ function PaymentReturnContent() {
     let cancelled = false;
 
     async function complete() {
-      const endpoints = [
-        `/api/payments/forms/verify?reference=${encodeURIComponent(reference)}`,
-        `/api/apply/voucher/verify?reference=${encodeURIComponent(reference)}`,
-      ];
+      const partnerUrl = `/api/apply/voucher/verify?reference=${encodeURIComponent(reference)}`;
+      const formUrl = `/api/payments/forms/verify?reference=${encodeURIComponent(reference)}`;
+      const endpoints =
+        from === "partner"
+          ? [partnerUrl, formUrl]
+          : from === "form"
+            ? [formUrl, partnerUrl]
+            : // Default: partner first so secured-school buys are not mis-claimed as pending forms
+              [partnerUrl, formUrl];
 
       let verifiedEmail: string | null = null;
       let lastError: string | null = null;
+      let verifyFrom: "partner" | "form" | null = null;
 
       for (const url of endpoints) {
         try {
@@ -51,6 +58,7 @@ function PaymentReturnContent() {
             typeof data.email === "string"
               ? data.email.trim().toLowerCase()
               : null;
+          verifyFrom = url.includes("/apply/voucher/") ? "partner" : "form";
           break;
         } catch {
           lastError = "Could not verify payment. Please try again.";
@@ -66,9 +74,12 @@ function PaymentReturnContent() {
           // ignore
         }
         window.dispatchEvent(new CustomEvent("tg-purchases-updated"));
-        window.location.replace(
-          `/dashboard/my-forms?reference=${encodeURIComponent(reference)}`,
-        );
+        const fromParam = verifyFrom || from || "";
+        const qs = new URLSearchParams({ reference });
+        if (fromParam === "partner" || fromParam === "form") {
+          qs.set("from", fromParam);
+        }
+        window.location.replace(`/dashboard/my-forms?${qs.toString()}`);
         return;
       }
 
@@ -82,7 +93,7 @@ function PaymentReturnContent() {
     return () => {
       cancelled = true;
     };
-  }, [reference]);
+  }, [reference, from]);
 
   return (
     <div className="min-h-screen bg-white text-[#1E1E1E]">

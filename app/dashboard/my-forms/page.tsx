@@ -93,7 +93,8 @@ export default function MyFormsDashboardPage() {
             ? [partnerUrl, formUrl]
             : from === "form"
               ? [formUrl, partnerUrl]
-              : [formUrl, partnerUrl];
+              : // Default: partner first so secured-school buys fulfil + email correctly
+                [partnerUrl, formUrl];
 
         let verifiedEmail: string | null = null;
         let highlightSerial: string | null = null;

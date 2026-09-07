@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "../../../../lib/mongodb";
 import { sendCampaignEmail } from "../../../../lib/email";
+import { notifyManyUsers } from "../../../../lib/user-notifications-server";
 
 export async function GET(_req: NextRequest) {
   try {
@@ -138,7 +139,20 @@ export async function POST(req: NextRequest) {
     };
 
     const campaignsCol = db.collection("emailCampaigns");
-    await campaignsCol.insertOne(campaignDoc);
+    const insertResult = await campaignsCol.insertOne(campaignDoc);
+
+    if (successCount > 0) {
+      const delivered = emails.filter((email) => !failedEmails.includes(email));
+      void notifyManyUsers(db, delivered, {
+        title: "New email from TertiaryGuide",
+        body: subject.trim(),
+        kind: "email",
+        href: "/dashboard/notification",
+        dedupeKey: `email-campaign:${String(insertResult.insertedId)}`,
+      }).catch((err) =>
+        console.error("[admin/email-campaigns] notify users", err),
+      );
+    }
 
     return NextResponse.json(
       {

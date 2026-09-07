@@ -45,11 +45,21 @@ export async function POST(req: NextRequest) {
       undergraduateVoucherPrice?: number | null;
       postgraduateVoucherPrice?: number | null;
       voucherPrice?: number | null;
+      isPartner?: boolean;
     }>("schools");
 
     const school = await schools.findOne({ _id: new ObjectId(schoolId) });
     if (!school) {
       return NextResponse.json({ error: "School not found" }, { status: 404 });
+    }
+    if (school.isPartner) {
+      return NextResponse.json(
+        {
+          error:
+            "This school uses Apply online vouchers. Purchase from the Apply page instead.",
+        },
+        { status: 400 },
+      );
     }
 
     const levelPrice =
@@ -74,9 +84,10 @@ export async function POST(req: NextRequest) {
 
     const amountPesewas = Math.round(priceGhsRaw * 100);
 
-    // Public return page (no query string) — Paystack appends ?reference=
+    // Public return page — Paystack appends &reference= (or ?reference=)
     const callbackUrl = paymentReturnCallbackUrl(
       typeof body?.returnOrigin === "string" ? body.returnOrigin : null,
+      { from: "form" },
     );
 
     const tx = await initializePaystackTransaction({

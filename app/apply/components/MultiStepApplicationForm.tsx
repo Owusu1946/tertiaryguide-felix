@@ -66,6 +66,18 @@ import {
   downloadApplicationPrintout,
   printoutFromForm,
 } from "@/app/components/ApplicationPrintout";
+import {
+  DECLARATION_CERTIFY,
+  DECLARATION_FALSEHOOD,
+  DECLARATION_HEADING,
+  DECLARATION_IMPORTANT_BODY,
+  DECLARATION_IMPORTANT_HEADING,
+  DECLARATION_PERMISSION_AFTER,
+  DECLARATION_PERMISSION_BEFORE,
+  certificateNameOrder,
+  declarationSchoolLabel,
+  declarationSignedParts,
+} from "@/lib/admissions/declaration";
 
 type ProgrammeOption = {
   id: string;
@@ -1802,6 +1814,49 @@ export function MultiStepApplicationForm({
                 existingApplicationNumber || undefined,
               )}
             />
+
+            <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5 sm:p-6">
+              <div className="mb-5 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#B91C1C]">
+                  {DECLARATION_IMPORTANT_HEADING}
+                </p>
+                <p className="mt-2 text-sm font-semibold leading-relaxed text-[#B91C1C]">
+                  {DECLARATION_IMPORTANT_BODY}
+                </p>
+              </div>
+              <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-[#0F172A]">
+                {DECLARATION_HEADING}
+              </h3>
+              <div className="mt-4 space-y-4 text-sm leading-relaxed text-[#334155]">
+                <p>{DECLARATION_CERTIFY}</p>
+                <p>
+                  {DECLARATION_PERMISSION_BEFORE}
+                  <strong className="font-bold text-[#0F172A]">
+                    {declarationSchoolLabel(schoolName)}
+                  </strong>
+                  {DECLARATION_PERMISSION_AFTER}
+                </p>
+                <p>{DECLARATION_FALSEHOOD}</p>
+                <p className="font-medium text-[#0F172A]">
+                  {(() => {
+                    const signed = declarationSignedParts(
+                      certificateNameOrder(form.personal),
+                    );
+                    return (
+                      <>
+                        {signed.before}
+                        {signed.name}{" "}
+                        <span className="font-semibold text-[#B91C1C]">
+                          {signed.hint}
+                        </span>
+                        {signed.after}
+                      </>
+                    );
+                  })()}
+                </p>
+              </div>
+            </div>
+
             <label className="flex items-start gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
               <input
                 type="checkbox"
@@ -1815,9 +1870,7 @@ export function MultiStepApplicationForm({
                 className="mt-1 h-4 w-4 rounded border-[#CBD5E1] text-[var(--school-brand,#007AFF)] focus:ring-[var(--school-brand,#007AFF)]"
               />
               <span className="leading-relaxed text-[#334155]">
-                I have read the declaration above. I certify that the
-                information provided is true and accurate, and that my name
-                appears in the same order as on my certificate / result slip.
+                I have read and agree to the declaration above.
                 {errors.declarationAccepted && (
                   <span className="mt-1 block text-xs font-medium text-[#DC2626]">
                     {errors.declarationAccepted}

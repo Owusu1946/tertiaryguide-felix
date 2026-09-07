@@ -30,6 +30,7 @@ import {
   sendApplicationSubmittedToSchool,
 } from "../../../../lib/email";
 import { verifyPassword } from "../../../../lib/password";
+import { logPlatformActivity } from "../../../../lib/platform-activity";
 import {
   buildApplicationSummaryPdf,
   printoutFilename,
@@ -37,6 +38,8 @@ import {
 import { printoutFromDetail } from "../../../../lib/admissions/printout-data";
 import { schoolApplicationNotifyEmails } from "../../../../lib/admissions/school-notify-emails";
 import { listProgrammeChoices } from "../../../../lib/admissions/programme-choices";
+import { createUserNotification } from "../../../../lib/user-notifications-server";
+import { studentStatusCopy } from "../../../../lib/admissions/status-messages";
 
 async function notifySchoolOfApplication(opts: {
   db: Db;
@@ -93,9 +96,14 @@ async function notifySchoolOfApplication(opts: {
         to,
         applicantName: opts.applicantName,
         programme,
+        programmes: programmes.map((p) => ({
+          label: p.label,
+          display: p.display,
+        })),
         schoolName: opts.school.name,
         applicationNumber: opts.application.applicationNumber,
         applicationUrl,
+        submittedAt: opts.application.submittedAt || new Date(),
         updated: opts.updated,
         pdf,
       });
@@ -246,6 +254,24 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      await logPlatformActivity({
+        req,
+        action: "user.application.update",
+        surface: "user",
+        severity: "info",
+        actorKind: "user",
+        actorUsername: personalInfo.email,
+        actorEmail: personalInfo.email,
+        schoolId: String(school._id),
+        schoolSlug: school.slug ?? null,
+        schoolName: school.name,
+        targetType: "application",
+        targetId: String(existingApp._id),
+        summary: `${applicantName} updated application ${existingApp.applicationNumber} for ${school.name}`,
+        success: true,
+        meta: { applicationNumber: existingApp.applicationNumber },
+      });
+
       return NextResponse.json({
         ok: true,
         updated: true,
@@ -301,15 +327,34 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      const programmes = listProgrammeChoices(formFields.programmeChoices);
       await sendApplicationSubmittedToApplicant({
         to: personalInfo.email,
         applicantName,
         schoolName: school.name,
         applicationNumber,
         submittedAt: now,
+        programmes: programmes.map((p) => ({
+          label: p.label,
+          display: p.display,
+        })),
       });
     } catch (e) {
       console.error("[apply/submit] applicant email", e);
+    }
+
+    try {
+      const copy = studentStatusCopy("Pending");
+      await createUserNotification(db, {
+        email: personalInfo.email,
+        title: copy.title,
+        body: `${school.name}: ${copy.message} Application number ${applicationNumber}.`,
+        kind: "application",
+        href: "/dashboard/my-applications",
+        dedupeKey: `application-submitted:${String(result.insertedId)}`,
+      });
+    } catch (e) {
+      console.error("[apply/submit] applicant notification", e);
     }
 
     try {
@@ -323,6 +368,24 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error("[apply/submit] school notify", e);
     }
+
+    await logPlatformActivity({
+      req,
+      action: "user.application.submit",
+      surface: "user",
+      severity: "info",
+      actorKind: "user",
+      actorUsername: personalInfo.email,
+      actorEmail: personalInfo.email,
+      schoolId: String(school._id),
+      schoolSlug: school.slug ?? null,
+      schoolName: school.name,
+      targetType: "application",
+      targetId: String(result.insertedId),
+      summary: `${applicantName} submitted application ${applicationNumber} to ${school.name}`,
+      success: true,
+      meta: { applicationNumber },
+    });
 
     return NextResponse.json(
       {

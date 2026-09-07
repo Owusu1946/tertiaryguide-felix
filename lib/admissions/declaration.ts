@@ -14,6 +14,11 @@ export const DECLARATION_FALSEHOOD =
 export const DECLARATION_NAME_CLOSING =
   "certify that the information provided are valid and will be held personally responsible for its authenticity and will bear any consequences for any invalid information provided";
 
+export const DECLARATION_PERMISSION_BEFORE =
+  "I understand that by submitting this application, I give ";
+export const DECLARATION_PERMISSION_AFTER =
+  " permission to validate the authenticity of the information including academic records and other mandatory documents provided.";
+
 export function certificateNameOrder(personal?: {
   title?: string | null;
   surname?: string | null;
@@ -28,7 +33,38 @@ export function certificateNameOrder(personal?: {
     .toUpperCase();
 }
 
+export function declarationSchoolLabel(schoolName: string) {
+  return schoolName.trim() || "the University";
+}
+
 export function declarationPermissionText(schoolName: string) {
-  const school = schoolName.trim() || "the University";
-  return `I understand that by submitting this application, I give ${school} permission to validate the authenticity of the information including academic records and other mandatory documents provided.`;
+  return `${DECLARATION_PERMISSION_BEFORE}${declarationSchoolLabel(schoolName)}${DECLARATION_PERMISSION_AFTER}`;
+}
+
+/** Final signed line, e.g. "I, MR. ANNOBIL BARACK JOJO (Exact name…) certify that…" */
+export function declarationSignedSentence(certificateName: string) {
+  const name =
+    certificateName.trim().toUpperCase() ||
+    "[YOUR FULL NAME AS ON CERTIFICATE]";
+  return `I, ${name} ${DECLARATION_NAME_HINT} ${DECLARATION_NAME_CLOSING}`;
+}
+
+export function declarationSignedParts(certificateName: string) {
+  const name =
+    certificateName.trim().toUpperCase() ||
+    "[YOUR FULL NAME AS ON CERTIFICATE]";
+  return {
+    before: "I, ",
+    name,
+    hint: DECLARATION_NAME_HINT,
+    after: ` ${DECLARATION_NAME_CLOSING}`,
+  };
+}
+
+export function declarationParagraphs(schoolName: string) {
+  return [
+    DECLARATION_CERTIFY,
+    declarationPermissionText(schoolName),
+    DECLARATION_FALSEHOOD,
+  ] as const;
 }

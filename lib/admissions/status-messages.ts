@@ -23,28 +23,32 @@ export function studentStatusCopy(status: string): StudentStatusCopy {
         message:
           "Thank you for applying. The admissions team will review your form and update you here — and by email — when there’s news.",
         tone: "neutral",
-        emailSubject: (school) => `We’ve received your application to ${school}`,
-        emailPreview: "Your application is safely with the school.",
+        emailSubject: (school) =>
+          `Application Received — ${school} | TertiaryGuide`,
+        emailPreview: "Your application has been successfully received.",
       };
     case "Under Review":
       return {
-        badge: "Under review",
-        title: "Your application is being reviewed",
+        badge: "Under further review",
+        title: "Your application is under further review",
         message:
-          "The admissions team is taking a careful look at your application. There’s nothing you need to do right now. We’ll write as soon as a decision is ready.",
+          "The admissions team is conducting a further review of your application. No final decision has been made yet — you’ll be notified as soon as there is an update.",
         tone: "info",
-        emailSubject: (school) => `Your ${school} application is under review`,
-        emailPreview: "The school is reviewing your application.",
+        emailSubject: (school) =>
+          `Your Application is Under Further Review — ${school} | TertiaryGuide`,
+        emailPreview: "Your application is under further review.",
       };
     case "Approved":
       return {
         badge: "Approved",
-        title: "Good news — your application is approved",
+        title: "Your application details have been approved",
         message:
-          "The school has approved your application. Please watch this page and your email for any next steps they share with you.",
+          "After a careful review of your details, your application looks clean and correct and has been approved. Subsequent information about the next steps will be shared with you soon — please watch this page and your email.",
         tone: "success",
-        emailSubject: (school) => `Good news from ${school}`,
-        emailPreview: "Your application has been approved.",
+        emailSubject: (school) =>
+          `Application Approved — ${school} | TertiaryGuide`,
+        emailPreview:
+          "Your application details have been reviewed and approved.",
       };
     case "Admitted":
       return {
@@ -53,18 +57,20 @@ export function studentStatusCopy(status: string): StudentStatusCopy {
         message:
           "We’re delighted to share that the school has offered you a place. Check your email for enrolment details, and keep this page handy as your application record.",
         tone: "success",
-        emailSubject: (school) => `Congratulations — admission offer from ${school}`,
+        emailSubject: (school) =>
+          `Congratulations! You've Been Admitted — ${school} | TertiaryGuide`,
         emailPreview: "You’ve been offered admission.",
       };
     case "Rejected":
       return {
-        badge: "Not offered this round",
-        title: "Thank you for applying — a place isn’t available this time",
+        badge: "Not admitted",
+        title: "Update on your application",
         message:
-          "The school wasn’t able to offer you admission in this round. That doesn’t take away from the work you put in, and it doesn’t mean you won’t thrive somewhere else. Many students find a great fit on a later try or at another institution. Whenever you’re ready, you can explore other programmes on TertiaryGuide — we’re here for the next step.",
+          "After careful review, the institution is unable to offer you admission at this time. That doesn’t take away from the work you put in — explore other programmes on TertiaryGuide whenever you’re ready.",
         tone: "care",
-        emailSubject: (school) => `An update on your application to ${school}`,
-        emailPreview: "A kind update on your application.",
+        emailSubject: (school) =>
+          `Update on Your Application — ${school} | TertiaryGuide`,
+        emailPreview: "An update on your application.",
       };
     default:
       return {
@@ -73,7 +79,8 @@ export function studentStatusCopy(status: string): StudentStatusCopy {
         message:
           "There’s a new update on your application. Please check this page for the latest details from the school.",
         tone: "neutral",
-        emailSubject: (school) => `An update on your application to ${school}`,
+        emailSubject: (school) =>
+          `Update on Your Application — ${school} | TertiaryGuide`,
         emailPreview: "Your application status has been updated.",
       };
   }

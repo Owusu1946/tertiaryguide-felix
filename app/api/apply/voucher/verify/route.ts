@@ -19,6 +19,22 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Payment not successful" }, { status: 400 });
     }
 
+    const product = tx.metadata?.product;
+    // University form stock vouchers are handled by /api/payments/forms/verify
+    if (product === "school_voucher") {
+      return NextResponse.json(
+        { error: "Use forms verification for this payment" },
+        { status: 400 },
+      );
+    }
+    // Require either partner metadata or a pending admission payment row
+    if (product !== "partner_voucher" && !existing) {
+      return NextResponse.json(
+        { error: "Not a partner voucher payment" },
+        { status: 400 },
+      );
+    }
+
     const schoolId =
       (typeof tx.metadata?.schoolId === "string" && tx.metadata.schoolId) ||
       (existing ? String(existing.schoolId) : null);
@@ -69,7 +85,15 @@ export async function GET(req: NextRequest) {
       emailSent: result.emailSent,
       emailError: result.emailError ?? null,
       email,
-      voucher: result.voucher,
+      // Flatten for My Forms flip cards (serial + pin) and keep admission fields
+      voucher: {
+        serial: result.voucher.serialNumber,
+        pin: result.voucher.voucherCode,
+        serialNumber: result.voucher.serialNumber,
+        voucherCode: result.voucher.voucherCode,
+        amount: result.voucher.amount,
+        programmeLevel: result.voucher.programmeLevel,
+      },
       school: result.school,
     });
   } catch (error) {

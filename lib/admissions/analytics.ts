@@ -8,8 +8,12 @@ export type DashboardMetrics = {
   pendingApplications: number;
   underReviewApplications: number;
   admittedApplications: number;
+  acceptedOffers: number;
+  declinedOffers: number;
   totalRevenue: number;
   totalVouchersSold: number;
+  undergraduateVouchersSold: number;
+  postgraduateVouchersSold: number;
 };
 
 function startOfToday(): Date {
@@ -36,8 +40,12 @@ async function computeMetrics(
     pendingApplications,
     underReviewApplications,
     admittedApplications,
+    acceptedOffers,
+    declinedOffers,
     revenueAgg,
     totalVouchersSold,
+    undergraduateVouchersSold,
+    postgraduateVouchersSold,
   ] = await Promise.all([
     apps.countDocuments(schoolFilter),
     apps.countDocuments({ ...schoolFilter, submittedAt: { $gte: today } }),
@@ -46,6 +54,16 @@ async function computeMetrics(
     apps.countDocuments({ ...schoolFilter, status: "Pending" }),
     apps.countDocuments({ ...schoolFilter, status: "Under Review" }),
     apps.countDocuments({ ...schoolFilter, status: "Admitted" }),
+    apps.countDocuments({
+      ...schoolFilter,
+      status: "Admitted",
+      offerResponse: "accepted",
+    }),
+    apps.countDocuments({
+      ...schoolFilter,
+      status: "Admitted",
+      offerResponse: "declined",
+    }),
     payments
       .aggregate<{ total: number }>([
         { $match: { ...schoolFilter, status: "success" } },
@@ -53,6 +71,18 @@ async function computeMetrics(
       ])
       .toArray(),
     vouchers.countDocuments(schoolFilter),
+    vouchers.countDocuments({
+      ...schoolFilter,
+      $or: [
+        { programmeLevel: "undergraduate" },
+        { programmeLevel: { $exists: false } },
+        { programmeLevel: null },
+      ],
+    }),
+    vouchers.countDocuments({
+      ...schoolFilter,
+      programmeLevel: "postgraduate",
+    }),
   ]);
 
   return {
@@ -63,8 +93,12 @@ async function computeMetrics(
     pendingApplications,
     underReviewApplications,
     admittedApplications,
+    acceptedOffers,
+    declinedOffers,
     totalRevenue: revenueAgg[0]?.total ?? 0,
     totalVouchersSold,
+    undergraduateVouchersSold,
+    postgraduateVouchersSold,
   };
 }
 

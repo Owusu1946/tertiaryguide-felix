@@ -6,6 +6,7 @@ import {
   requireStaff,
 } from "../../../../../lib/admin-access";
 import { invalidateUserCache } from "../../../../../lib/redis";
+import { logPlatformActivity } from "../../../../../lib/platform-activity";
 
 const MAX_BATCH_SIZE = 200;
 
@@ -84,6 +85,23 @@ export async function POST(req: NextRequest) {
           }),
         ),
     );
+
+    await logPlatformActivity({
+      req,
+      action: "admin.users.bulk_delete",
+      surface: "admin",
+      severity: "warning",
+      actorKind: "staff",
+      actorUsername: auth.user.username,
+      actorId: String(auth.user._id),
+      actorEmail: auth.user.email || null,
+      summary: `Admin "${auth.user.username}" deleted ${result.deletedCount} user account${result.deletedCount === 1 ? "" : "s"}`,
+      success: true,
+      meta: {
+        deletedCount: result.deletedCount,
+        emails: targets.map((u) => u.email).filter(Boolean).slice(0, 50),
+      },
+    });
 
     return NextResponse.json({
       ok: true,

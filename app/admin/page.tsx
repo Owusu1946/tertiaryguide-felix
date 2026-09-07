@@ -8,6 +8,8 @@ import {
   BarChart3,
   Bell,
   Building2,
+  ChevronsLeft,
+  ChevronsRight,
   ClipboardList,
   FileText,
   GraduationCap,
@@ -17,13 +19,17 @@ import {
   LogOut,
   Mail,
   Megaphone,
+  Menu,
   Newspaper,
   Package,
   Compass,
+  School,
   Settings,
   ShieldCheck,
+  ArrowUpRight,
   UserCog,
   Users,
+  X,
 } from "lucide-react";
 import AdminFormsSection from "./AdminFormsSection";
 import { AdminAnalyticsSection } from "./AdminAnalyticsSection";
@@ -34,12 +40,16 @@ import { AdminAssistanceSection } from "./AdminAssistanceSection";
 import { AdminAdsSection } from "./AdminAdsSection";
 import { AdminAdReportsSection } from "./AdminAdReportsSection";
 import { AdminFormRequestsSection } from "./AdminFormRequestsSection";
-import { AdminSettingsSection } from "./AdminSettingsSection";
 import { AdminStaffSection } from "./AdminStaffSection";
 import { AdminPartnerSchoolsSection } from "./AdminPartnerSchoolsSection";
+import { AdminPartnerVouchersSection } from "./AdminPartnerVouchersSection";
 import { AdminExploreSection } from "./AdminExploreSection";
 import { AdminEmailCampaignsSection } from "./AdminEmailCampaignsSection";
-import { AdminApplicationsSection } from "./AdminApplicationsSection";
+import {
+  AdminSettingsSection,
+  type SettingsTab,
+} from "./AdminSettingsSection";
+import { AdminManageSchoolsSection } from "./AdminManageSchoolsSection";
 import { NotificationInbox } from "@/app/components/NotificationInbox";
 import {
   ADMIN_NOTIFICATIONS_KEY,
@@ -50,8 +60,9 @@ import {
 type AdminSection =
   | "dashboard"
   | "forms"
+  | "manageSchools"
   | "partnerSchools"
-  | "applications"
+  | "partnerVouchers"
   | "analytics"
   | "users"
   | "checkers"
@@ -73,6 +84,8 @@ const baseMetrics = [
     description: "All paid university voucher orders",
     tone: "blue" as const,
     value: "—",
+    section: "forms" as AdminSection,
+    cta: "Open Forms",
   },
   {
     id: 2,
@@ -81,6 +94,8 @@ const baseMetrics = [
     description: "Paid voucher orders still awaiting codes",
     tone: "red" as const,
     value: "—",
+    section: "forms" as AdminSection,
+    cta: "Process stock",
   },
   {
     id: 3,
@@ -89,6 +104,8 @@ const baseMetrics = [
     description: "Voucher orders already fulfilled",
     tone: "green" as const,
     value: "—",
+    section: "forms" as AdminSection,
+    cta: "View issued",
   },
 ];
 
@@ -101,9 +118,8 @@ const initialUnservedForms: {
 
 function periodBadge(period: string) {
   return (
-    <span className="inline-flex items-center rounded-full bg-[#EFF6FF] px-2.5 py-1 text-xs font-medium text-[#2563EB]">
+    <span className="inline-flex items-center rounded-full bg-[#EFF6FF] px-2.5 py-1 text-[11px] font-medium text-[#2563EB]">
       {period}
-      <span className="ml-1 text-[10px] text-[#60A5FA]">⇅</span>
     </span>
   );
 }
@@ -122,7 +138,7 @@ function toneDot(tone: "blue" | "red" | "green") {
 
   return (
     <span
-      className={`mr-3 inline-flex h-8 w-8 items-center justify-center rounded-full ${bg}`}
+      className={`mr-3 inline-flex h-9 w-9 items-center justify-center rounded-2xl ${bg}`}
     >
       <Icon className={`h-4 w-4 ${iconColor}`} />
     </span>
@@ -136,11 +152,42 @@ export default function AdminDashboardPage() {
   const [adminRole, setAdminRole] = useState<"admin" | "superadmin" | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [activeSection, setActiveSection] = useState<AdminSection>("dashboard");
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("account");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [adminNotifications, setAdminNotifications] = useState<
     AdminNotification[]
   >([]);
 
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("tg_admin_sidebar_collapsed");
+      if (stored === "1") setSidebarCollapsed(true);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        "tg_admin_sidebar_collapsed",
+        sidebarCollapsed ? "1" : "0",
+      );
+    } catch {
+      // ignore
+    }
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileSidebarOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileSidebarOpen]);
   useEffect(() => {
     async function checkAuth() {
       try {
@@ -470,6 +517,15 @@ export default function AdminDashboardPage() {
     );
     setNotificationsOpen(false);
     const section = resolveAdminNotificationSection(match);
+    if (
+      section === "applications" ||
+      section === "deletedApplications" ||
+      section === "activityLogs"
+    ) {
+      setSettingsTab(section as SettingsTab);
+      setActiveSection("settings");
+      return;
+    }
     setActiveSection(section as AdminSection);
   };
 
@@ -598,9 +654,6 @@ export default function AdminDashboardPage() {
     return metric;
   });
 
-  const adminNavScroll =
-    "overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
-
   const adminNavItems: {
     id: AdminSection;
     label: string;
@@ -609,8 +662,9 @@ export default function AdminDashboardPage() {
   }[] = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "forms", label: "Forms", icon: FileText },
+    { id: "manageSchools", label: "Manage schools", icon: School },
     { id: "partnerSchools", label: "Partner schools", icon: Building2 },
-    { id: "applications", label: "Applications", icon: GraduationCap },
+    { id: "partnerVouchers", label: "Partner vouchers", icon: Package },
     { id: "formRequests", label: "Form requests", icon: ClipboardList },
     { id: "users", label: "Users", icon: Users },
     { id: "checkers", label: "Checkers", icon: ShieldCheck },
@@ -625,48 +679,226 @@ export default function AdminDashboardPage() {
     { id: "staff", label: "Admin team", icon: UserCog, superadminOnly: true },
   ];
 
+  const visibleNavItems = adminNavItems.filter(
+    (item) => !item.superadminOnly || adminRole === "superadmin",
+  );
+
+  const selectSection = (id: AdminSection) => {
+    if (id === "settings") {
+      setSettingsTab("account");
+    }
+    setActiveSection(id);
+    setMobileSidebarOpen(false);
+  };
+
+  const openSettingsTab = (tab: SettingsTab) => {
+    setSettingsTab(tab);
+    setActiveSection("settings");
+    setMobileSidebarOpen(false);
+  };
+
+  const activeNavLabel =
+    visibleNavItems.find((item) => item.id === activeSection)?.label ||
+    "Dashboard";
+
   return (
-    <main className="min-h-screen bg-[#F3F4F6] px-4 py-4 text-[#050816] sm:px-6 md:px-10">
-      <div className="mx-auto flex min-w-0 max-w-7xl flex-col gap-6 sm:gap-8">
-        <header className="overflow-hidden rounded-3xl border border-[#BFDBFE] bg-gradient-to-r from-[#EAF4FF] via-white to-[#F2F8FF] px-4 py-4 shadow-sm sm:px-6">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex shrink-0 items-center rounded-2xl bg-white px-3 py-2 shadow-sm ring-1 ring-[#DBEAFE]">
+    <main className="min-h-screen bg-[#F3F4F6] text-[#050816]">
+      {mobileSidebarOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/35 backdrop-blur-[1px] lg:hidden"
+          aria-label="Close sidebar"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-[#BFDBFE] bg-gradient-to-b from-[#EAF4FF] via-white to-[#F8FBFF] shadow-sm transition-all duration-200 ease-out ${
+          sidebarCollapsed ? "lg:w-[4.5rem]" : "lg:w-64"
+        } w-64 ${
+          mobileSidebarOpen
+            ? "translate-x-0"
+            : "-translate-x-full lg:translate-x-0"
+        }`}
+        aria-label="Admin sidebar"
+      >
+        <div
+          className={`border-b border-[#DBEAFE] px-3 py-3 ${
+            sidebarCollapsed ? "lg:px-2" : ""
+          }`}
+        >
+          <div
+            className={`flex items-start gap-2 ${
+              sidebarCollapsed ? "lg:flex-col lg:items-center" : ""
+            }`}
+          >
+            <div
+              className={`min-w-0 flex-1 ${
+                sidebarCollapsed ? "lg:flex lg:flex-col lg:items-center" : ""
+              }`}
+            >
+              <div
+                className={`inline-flex items-center rounded-xl bg-white px-2 py-1 shadow-sm ring-1 ring-[#DBEAFE] ${
+                  sidebarCollapsed ? "lg:mx-auto" : ""
+                }`}
+              >
                 <Image
                   src="/hero/logoTguide.png"
                   alt="TertiaryGuide"
-                  width={150}
-                  height={34}
-                  className="h-8 w-auto"
+                  width={96}
+                  height={22}
+                  className={`h-4 w-auto ${
+                    sidebarCollapsed ? "lg:h-5 lg:w-5 lg:object-contain" : ""
+                  }`}
                 />
               </div>
-              <div className="min-w-0">
-                <p className="truncate text-base font-semibold tracking-tight text-[#050816] sm:text-lg">
-                  TertiaryGuide Admin
-                </p>
-                <p className="hidden text-xs text-[#4B5563] sm:block">
-                  Manage forms, staff, analytics, and support activity
-                </p>
-              </div>
+
               {adminRole === "superadmin" && (
-                <span className="hidden rounded-full bg-[#FEF3C7] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#92400E] sm:inline">
-                  Superadmin
-                </span>
+                <div
+                  className={`mt-2 ${sidebarCollapsed ? "lg:hidden" : ""}`}
+                >
+                  <span className="inline-flex rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#92400E]">
+                    Superadmin
+                  </span>
+                </div>
               )}
             </div>
 
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(false)}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-white text-[#0F172A] hover:bg-[#EFF6FF] lg:hidden"
+              aria-label="Close sidebar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              className="mt-0.5 hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-white text-[#0F172A] hover:bg-[#EFF6FF] lg:inline-flex"
+              aria-label={
+                sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+              }
+              title={
+                sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+              }
+            >
+              {sidebarCollapsed ? (
+                <ChevronsRight className="h-4 w-4" />
+              ) : (
+                <ChevronsLeft className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <nav
+          className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3"
+          aria-label="Admin sections"
+        >
+          {visibleNavItems.map((item) => {
+            const Icon = item.icon;
+            const active = activeSection === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => selectSection(item.id)}
+                title={item.label}
+                className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm font-medium transition ${
+                  sidebarCollapsed ? "lg:justify-center lg:px-2" : ""
+                } ${
+                  active
+                    ? "bg-[#007AFF] text-white shadow-sm"
+                    : "text-[#4B5563] hover:bg-white hover:text-[#007AFF]"
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span
+                  className={`truncate ${
+                    sidebarCollapsed ? "lg:hidden" : ""
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div
+          className={`border-t border-[#DBEAFE] p-2 ${
+            sidebarCollapsed ? "lg:px-1.5" : ""
+          }`}
+        >
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Logout"
+            className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium text-[#4B5563] hover:bg-white hover:text-[#DC2626] ${
+              sidebarCollapsed ? "lg:justify-center lg:px-2" : ""
+            }`}
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            <span className={sidebarCollapsed ? "lg:hidden" : ""}>Logout</span>
+          </button>
+        </div>
+      </aside>
+
+      <div
+        className={`min-h-screen transition-[padding] duration-200 ease-out ${
+          sidebarCollapsed ? "lg:pl-[4.5rem]" : "lg:pl-64"
+        }`}
+      >
+        <header className="sticky top-0 z-30 border-b border-[#BFDBFE] bg-white/90 px-4 py-3 backdrop-blur sm:px-6">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(true)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-white text-[#0F172A] hover:bg-[#EFF6FF] lg:hidden"
+                aria-label="Open sidebar"
+              >
+                <Menu className="h-4 w-4" />
+              </button>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-[#050816] sm:text-base">
+                  {activeNavLabel}
+                </p>
+                <p className="hidden truncate text-xs text-[#6B7280] sm:block">
+                  {adminName ? `Signed in as ${adminName}` : "TertiaryGuide Admin"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed((v) => !v)}
+                className="hidden h-9 w-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-white text-[#0F172A] hover:bg-[#EFF6FF] lg:inline-flex"
+                aria-label={
+                  sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+                }
+                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {sidebarCollapsed ? (
+                  <ChevronsRight className="h-4 w-4" />
+                ) : (
+                  <ChevronsLeft className="h-4 w-4" />
+                )}
+              </button>
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setNotificationsOpen(true)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-white text-[#0F172A] hover:bg-[#EFF6FF] sm:h-10 sm:w-10"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[#BFDBFE] bg-white text-[#0F172A] hover:bg-[#EFF6FF]"
                   aria-label="Admin notifications"
                 >
-                  <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <Bell className="h-4 w-4" />
                 </button>
                 {unreadAdminCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[0.875rem] items-center justify-center rounded-full bg-[#EF4444] px-0.5 text-[9px] font-semibold text-white shadow-sm sm:-right-1 sm:-top-1 sm:h-4 sm:min-w-[1rem] sm:px-1 sm:text-[10px]">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[0.875rem] items-center justify-center rounded-full bg-[#EF4444] px-0.5 text-[9px] font-semibold text-white shadow-sm">
                     {unreadAdminCount}
                   </span>
                 )}
@@ -674,269 +906,372 @@ export default function AdminDashboardPage() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0F172A] hover:bg-[#EFF6FF] sm:px-4 sm:py-2 sm:text-sm"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-2.5 py-1.5 text-xs font-medium text-[#0F172A] hover:bg-[#EFF6FF] sm:px-3 sm:text-sm"
               >
                 <LogOut className="h-3.5 w-3.5" />
-                Logout
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
           </div>
-
-          <nav
-            className={`${adminNavScroll} mt-5 flex gap-2 border-b border-[#DBEAFE] px-1 pb-px text-xs font-medium text-[#4B5563] sm:px-0 sm:text-sm`}
-            aria-label="Admin sections"
-          >
-            {adminNavItems
-              .filter((item) => !item.superadminOnly || adminRole === "superadmin")
-              .map((item) => {
-                const Icon = item.icon;
-                const active = activeSection === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setActiveSection(item.id)}
-                    className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-2xl px-3 py-2 transition ${
-                      active
-                        ? "border-b-2 border-[#007AFF] bg-white text-[#007AFF] shadow-sm"
-                        : "text-[#4B5563] hover:bg-white/70 hover:text-[#007AFF]"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </button>
-                );
-              })}
-          </nav>
         </header>
 
+        <div className="mx-auto flex min-w-0 max-w-7xl flex-col gap-6 px-4 py-4 sm:gap-8 sm:px-6 sm:py-6 md:px-8">
+        {/* content start */}
         {activeSection === "dashboard" ? (
           <>
-            <section className="space-y-2 rounded-3xl border border-[#BFDBFE] bg-gradient-to-r from-[#007AFF] to-[#2B8FFF] px-5 py-6 text-white shadow-sm sm:px-6">
-              <div className="flex items-start gap-3">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white ring-1 ring-white/25">
-                  <LayoutDashboard className="h-6 w-6" />
-                </span>
+            <section className="relative overflow-hidden rounded-[1.75rem] border border-[#BFDBFE] bg-[#007AFF] px-5 py-6 text-white shadow-sm sm:px-7">
+              <div
+                className="pointer-events-none absolute inset-0 opacity-40"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at 12% 20%, rgba(255,255,255,0.35), transparent 42%), radial-gradient(circle at 88% 10%, rgba(255,255,255,0.18), transparent 34%)",
+                }}
+              />
+              <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/70">
-                    Admin overview
+                    Overview
                   </p>
                   <h1 className="mt-1 text-2xl font-semibold tracking-tight md:text-3xl">
                     {`Welcome back, ${adminName || "Admin"}`}
                   </h1>
+                  <p className="mt-2 max-w-xl text-sm text-white/85">
+                    {formattedDate} · {formattedTime}. Jump into the areas that
+                    need attention or open a shortcut below.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => selectSection("forms")}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#007AFF] shadow-sm hover:bg-[#F0F7FF]"
+                  >
+                    Open Forms
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => selectSection("analytics")}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white/35 bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/20"
+                  >
+                    Analytics
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
-              <p className="text-sm text-white/85">
-                {formattedDate}, {formattedTime}
-              </p>
-              <p className="text-xs text-white/75">
-                Voucher cards are synced to live totals. WASSCE checker purchases:
-                {" "}
-                <span className="font-semibold text-white">
-                  {checkerTotal ?? "—"}
-                </span>
-              </p>
             </section>
 
-            <section className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)]">
-              <div className="grid min-w-0 gap-5 md:grid-cols-2">
-                {metrics.map((metric) => (
-                  <article
-                    key={metric.id}
-                    className="flex flex-col justify-between rounded-3xl border border-[#DBEAFE] bg-gradient-to-br from-white to-[#F8FBFF] px-6 py-5 shadow-sm"
-                  >
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        {periodBadge(metric.period)}
-                      </div>
-                      <div className="h-px w-full bg-[#DBEAFE]" />
-                    </div>
-
-                    <div className="mt-4">
-                      <div className="flex items-center text-sm font-medium text-[#4B5563]">
-                        {toneDot(metric.tone)}
-                        <div>
-                          <p className="text-sm font-semibold text-[#111827]">
-                            {metric.label}
-                          </p>
-                          <p className="text-xs text-[#9CA3AF]">{metric.description}</p>
-                        </div>
-                      </div>
-
-                      <p className="mt-4 text-3xl font-semibold tracking-tight text-[#050816]">
-                        {metric.value}
-                      </p>
-
-                      <p className="mt-2 text-xs text-[#6B7280]">
-                        Synced from live voucher totals
-                      </p>
-                    </div>
-                  </article>
-                ))}
-
-                <article className="flex flex-col justify-between rounded-3xl border border-[#DBEAFE] bg-gradient-to-br from-white to-[#F8FBFF] px-6 py-5 shadow-sm">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      {periodBadge("Daily")}
-                    </div>
-                    <div className="h-px w-full bg-[#DBEAFE]" />
+            <section className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {metrics.map((metric) => (
+                <button
+                  key={metric.id}
+                  type="button"
+                  onClick={() => selectSection(metric.section)}
+                  className="group flex min-h-[10.5rem] flex-col justify-between rounded-[1.5rem] border border-[#D7E6F8] bg-white p-5 text-left shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] transition hover:-translate-y-0.5 hover:border-[#93C5FD] hover:shadow-[0_18px_36px_-20px_rgba(37,99,235,0.45)]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    {toneDot(metric.tone)}
+                    {periodBadge(metric.period)}
                   </div>
-
                   <div className="mt-4">
-                    <div className="flex items-center text-sm font-medium text-[#4B5563]">
-                      {toneDot("blue")}
-                      <div>
-                        <p className="text-sm font-semibold text-[#111827]">Visitors</p>
-                        <p className="text-xs text-[#9CA3AF]">
-                          Unique visitors in the last 7 days
-                        </p>
-                      </div>
-                    </div>
-
-                    <p className="mt-4 text-3xl font-semibold tracking-tight text-[#050816]">
-                      {visitorsLoading
-                        ? "..."
-                        : uniqueVisitors7d !== null
-                          ? uniqueVisitors7d
-                          : totalVisits7d !== null
-                            ? totalVisits7d
-                            : "—"}
+                    <p className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                      {metric.label}
                     </p>
-
-                    {visitorsError ? (
-                      <p className="mt-1 text-xs text-[#DC2626]">
-                        {visitorsError}
-                      </p>
-                    ) : (
-                      <p className="mt-2 text-xs text-[#6B7280]">
-                        {totalVisits7d !== null
-                          ? `${totalVisits7d} page views tracked`
-                          : "Updates every minute"}
-                      </p>
-                    )}
+                    <p className="mt-1 text-3xl font-semibold tracking-tight text-[#0F172A]">
+                      {metric.value}
+                    </p>
+                    <p className="mt-1 text-xs text-[#94A3B8]">
+                      {metric.description}
+                    </p>
                   </div>
-                </article>
-              </div>
+                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#007AFF] group-hover:gap-1.5">
+                    {metric.cta}
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </span>
+                </button>
+              ))}
 
-              <aside className="flex min-w-0 flex-col rounded-3xl border border-[#DBEAFE] bg-white shadow-sm">
-                {/* Card header */}
-                <div className="flex flex-col gap-1 rounded-t-3xl bg-gradient-to-r from-[#F8FBFF] to-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <button
+                type="button"
+                onClick={() => selectSection("analytics")}
+                className="group flex min-h-[10.5rem] flex-col justify-between rounded-[1.5rem] border border-[#D7E6F8] bg-white p-5 text-left shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] transition hover:-translate-y-0.5 hover:border-[#93C5FD] hover:shadow-[0_18px_36px_-20px_rgba(37,99,235,0.45)]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  {toneDot("blue")}
+                  {periodBadge("7 days")}
+                </div>
+                <div className="mt-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+                    Visitors
+                  </p>
+                  <p className="mt-1 text-3xl font-semibold tracking-tight text-[#0F172A]">
+                    {visitorsLoading
+                      ? "..."
+                      : uniqueVisitors7d !== null
+                        ? uniqueVisitors7d
+                        : totalVisits7d !== null
+                          ? totalVisits7d
+                          : "—"}
+                  </p>
+                  {visitorsError ? (
+                    <p className="mt-1 text-xs text-[#DC2626]">{visitorsError}</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-[#94A3B8]">
+                      {totalVisits7d !== null
+                        ? `${totalVisits7d} page views tracked`
+                        : "Unique visitors in the last 7 days"}
+                    </p>
+                  )}
+                </div>
+                <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-[#007AFF] group-hover:gap-1.5">
+                  Open Analytics
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </span>
+              </button>
+            </section>
+
+            <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+              <div className="overflow-hidden rounded-[1.5rem] border border-[#D7E6F8] bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)]">
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#EAF2FB] px-5 py-4">
                   <div>
-                    <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-[#111827]">
-                      <AlertTriangle className="h-4 w-4 text-[#DC2626]" />
-                      Unissued Vouchers
+                    <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-[#0F172A]">
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#FEE2E2] text-[#DC2626]">
+                        <AlertTriangle className="h-4 w-4" />
+                      </span>
+                      Needs fulfilment
                     </h2>
-                    <p className="mt-0.5 text-[11px] text-[#6B7280]">
-                      Latest paid voucher orders waiting for codes
+                    <p className="mt-1 text-xs text-[#64748B]">
+                      Latest paid voucher orders still waiting for codes
                     </p>
                   </div>
                   <button
                     type="button"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#6B7280] hover:bg-[#EFF6FF]"
-                    aria-label="More options"
+                    onClick={() => selectSection("forms")}
+                    className="inline-flex items-center gap-1 rounded-full border border-[#BFDBFE] bg-[#F8FBFF] px-3 py-1.5 text-xs font-semibold text-[#007AFF] hover:bg-[#EFF6FF]"
                   >
-                    <span className="inline-block h-1 w-1 rounded-full bg-current" />
-                    <span className="mx-[3px] inline-block h-1 w-1 rounded-full bg-current" />
-                    <span className="inline-block h-1 w-1 rounded-full bg-current" />
+                    Manage in Forms
+                    <ArrowUpRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                <div className="overflow-x-auto rounded-b-3xl">
-                  {/* Inset header bar, not touching card edges */}
-                  <div className="min-w-[300px]">
-                    <div className="mx-4 grid min-w-0 grid-cols-[1.2fr_1fr_0.85fr] gap-1 rounded-t-2xl bg-[#EFF6FF] px-3 py-2 text-xs font-medium text-[#31557D] sm:mx-6 sm:grid-cols-[1.4fr_1.1fr_0.9fr] sm:px-4">
-                      <span className="min-w-0 truncate">School</span>
-                      <span className="min-w-0 truncate">Buyer</span>
-                      <span className="text-right">Date</span>
-                    </div>
 
-                    <div className="mx-4 divide-y divide-[#E5E7EB] rounded-b-2xl bg-[#FCFEFF] sm:mx-6">
-                      {formsLoading ? (
-                        <div className="px-3 py-3 text-xs text-[#6B7280] sm:px-4">
-                          Loading voucher orders...
-                        </div>
-                      ) : formsError ? (
-                        <div className="px-3 py-3 text-xs text-[#DC2626] sm:px-4">
-                          {formsError}
-                        </div>
-                      ) : unservedForms.length === 0 ? (
-                        <div className="px-3 py-3 text-xs text-[#6B7280] sm:px-4">
-                          No unissued vouchers at the moment.
-                        </div>
-                      ) : (
-                        unservedForms.map((row) => (
-                          <div
-                            key={row.id}
-                            className="grid min-w-0 grid-cols-[1.2fr_1fr_0.85fr] gap-1 px-3 py-2.5 text-xs text-[#111827] sm:grid-cols-[1.4fr_1.1fr_0.9fr] sm:px-4 sm:py-3 sm:text-sm"
+                <div className="px-5 py-3">
+                  <div className="grid grid-cols-[1.3fr_1fr_0.8fr] gap-2 px-2 pb-2 text-[11px] font-semibold uppercase tracking-wide text-[#7C93B0]">
+                    <span>School</span>
+                    <span>Buyer</span>
+                    <span className="text-right">Date</span>
+                  </div>
+                  <div className="divide-y divide-[#EEF4FF]">
+                    {formsLoading ? (
+                      <p className="px-2 py-4 text-sm text-[#64748B]">
+                        Loading voucher orders...
+                      </p>
+                    ) : formsError ? (
+                      <p className="px-2 py-4 text-sm text-[#DC2626]">{formsError}</p>
+                    ) : unservedForms.length === 0 ? (
+                      <p className="px-2 py-4 text-sm text-[#64748B]">
+                        No unissued vouchers at the moment.
+                      </p>
+                    ) : (
+                      unservedForms.slice(0, 6).map((row) => (
+                        <button
+                          key={row.id}
+                          type="button"
+                          onClick={() => selectSection("forms")}
+                          className="grid w-full grid-cols-[1.3fr_1fr_0.8fr] gap-2 rounded-xl px-2 py-3 text-left text-sm transition hover:bg-[#F8FBFF]"
+                        >
+                          <span
+                            className="min-w-0 truncate font-medium text-[#0F172A]"
+                            title={row.school}
                           >
-                            <span
-                              className="min-w-0 break-words font-medium"
-                              title={row.school}
-                            >
-                              {row.school}
-                            </span>
-                            <span
-                              className="min-w-0 break-words text-[#4B5563]"
-                              title={row.name}
-                            >
-                              {row.name}
-                            </span>
-                            <span className="text-right text-[#6B7280]">
-                              {row.date}
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
+                            {row.school}
+                          </span>
+                          <span
+                            className="min-w-0 truncate text-[#475569]"
+                            title={row.name}
+                          >
+                            {row.name}
+                          </span>
+                          <span className="text-right text-[#94A3B8]">
+                            {row.date}
+                          </span>
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
-              </aside>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-[#D7E6F8] bg-white p-5 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)]">
+                <div>
+                  <h2 className="text-sm font-semibold text-[#0F172A]">
+                    Quick shortcuts
+                  </h2>
+                  <p className="mt-1 text-xs text-[#64748B]">
+                    Jump straight into common admin tasks
+                  </p>
+                </div>
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      {
+                        id: "forms" as AdminSection,
+                        label: "Forms & stock",
+                        hint: "Orders and fulfilment",
+                        icon: FileText,
+                      },
+                      {
+                        id: "manageSchools" as AdminSection,
+                        label: "Manage schools",
+                        hint: "Prices and programmes",
+                        icon: School,
+                      },
+                      {
+                        id: "partnerSchools" as AdminSection,
+                        label: "Partner schools",
+                        hint: "Secured school portals",
+                        icon: Building2,
+                      },
+                      {
+                        id: "applications" as const,
+                        label: "Applications",
+                        hint: "Review student apps",
+                        icon: GraduationCap,
+                        settingsTab: "applications" as SettingsTab,
+                      },
+                      {
+                        id: "checkers" as AdminSection,
+                        label: "WASSCE checkers",
+                        hint:
+                          checkerTotal != null
+                            ? `${checkerTotal} purchases`
+                            : "Checker orders",
+                        icon: ShieldCheck,
+                      },
+                      {
+                        id: "users" as AdminSection,
+                        label: "Users",
+                        hint: "Accounts and profiles",
+                        icon: Users,
+                      },
+                      {
+                        id: "assistance" as AdminSection,
+                        label: "Assistance",
+                        hint: "Support requests",
+                        icon: HelpCircle,
+                      },
+                      {
+                        id: "emailCampaigns" as AdminSection,
+                        label: "Email campaigns",
+                        hint: "Reach students",
+                        icon: Mail,
+                      },
+                    ] as const
+                  ).map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          if ("settingsTab" in item && item.settingsTab) {
+                            openSettingsTab(item.settingsTab);
+                            return;
+                          }
+                          selectSection(item.id as AdminSection);
+                        }}
+                        className="group flex items-center gap-3 rounded-2xl border border-[#E8EEF5] bg-[#F8FBFF] px-3 py-3 text-left transition hover:border-[#93C5FD] hover:bg-white"
+                      >
+                        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#007AFF] shadow-sm ring-1 ring-[#DBEAFE]">
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-[#0F172A]">
+                            {item.label}
+                          </span>
+                          <span className="block truncate text-[11px] text-[#64748B]">
+                            {item.hint}
+                          </span>
+                        </span>
+                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-[#94A3B8] transition group-hover:text-[#007AFF]" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </section>
 
-            <section className="grid gap-4 md:grid-cols-3">
-              <article className="rounded-3xl border border-[#DBEAFE] bg-gradient-to-br from-[#F8FBFF] to-white px-5 py-5 shadow-sm">
-                <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#7C93B0]">
-                  <Package className="h-4 w-4 text-[#007AFF]" />
-                  Voucher fulfilment
+            <section className="grid gap-3 md:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => selectSection("forms")}
+                className="rounded-[1.35rem] border border-[#BFDBFE] bg-gradient-to-br from-[#EFF6FF] to-white px-5 py-5 text-left transition hover:border-[#60A5FA]"
+              >
+                <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#2563EB]">
+                  <Package className="h-4 w-4" />
+                  Fulfilment queue
                 </p>
-                <p className="mt-2 text-lg font-semibold text-[#111827]">
-                  Keep voucher orders and delivery records aligned
+                <p className="mt-2 text-2xl font-semibold text-[#0F172A]">
+                  {formsUnissued ?? "—"}
                 </p>
-                <p className="mt-2 text-sm text-[#5B6B7F]">
-                  These overview cards now use the same live totals shown in analytics.
+                <p className="mt-1 text-sm text-[#475569]">
+                  Paid orders waiting for voucher codes
                 </p>
-              </article>
-              <article className="rounded-3xl border border-[#DCFCE7] bg-gradient-to-br from-white to-[#F0FDF4] px-5 py-5 shadow-sm">
-                <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#4D7C0F]">
-                  <ShieldCheck className="h-4 w-4 text-[#16A34A]" />
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#007AFF]">
+                  Open Forms
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => selectSection("forms")}
+                className="rounded-[1.35rem] border border-[#BBF7D0] bg-gradient-to-br from-[#F0FDF4] to-white px-5 py-5 text-left transition hover:border-[#4ADE80]"
+              >
+                <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#15803D]">
+                  <ShieldCheck className="h-4 w-4" />
                   Issued snapshot
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-[#166534]">
                   {formsIssued ?? "—"}
                 </p>
-                <p className="mt-2 text-sm text-[#4B5563]">
-                  Voucher orders already fulfilled and sent to buyers.
+                <p className="mt-1 text-sm text-[#475569]">
+                  Vouchers already sent to buyers
                 </p>
-              </article>
-              <article className="rounded-3xl border border-[#FECACA] bg-gradient-to-br from-white to-[#FEF2F2] px-5 py-5 shadow-sm">
-                <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-[#B91C1C]">
-                  <AlertTriangle className="h-4 w-4 text-[#DC2626]" />
-                  Needs action
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#15803D]">
+                  View issued
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => selectSection("checkers")}
+                className="rounded-[1.35rem] border border-[#FDE68A] bg-gradient-to-br from-[#FFFBEB] to-white px-5 py-5 text-left transition hover:border-[#F59E0B]"
+              >
+                <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#B45309]">
+                  <ShieldCheck className="h-4 w-4" />
+                  WASSCE checkers
                 </p>
-                <p className="mt-2 text-2xl font-semibold text-[#B91C1C]">
-                  {formsUnissued ?? "—"}
+                <p className="mt-2 text-2xl font-semibold text-[#92400E]">
+                  {checkerTotal ?? "—"}
                 </p>
-                <p className="mt-2 text-sm text-[#4B5563]">
-                  Paid voucher orders still waiting for code assignment.
+                <p className="mt-1 text-sm text-[#475569]">
+                  Checker purchases across the platform
                 </p>
-              </article>
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#B45309]">
+                  Open Checkers
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </span>
+              </button>
             </section>
           </>
         ) : activeSection === "forms" ? (
           <AdminFormsSection />
+        ) : activeSection === "manageSchools" ? (
+          <AdminManageSchoolsSection />
         ) : activeSection === "partnerSchools" ? (
           <AdminPartnerSchoolsSection />
-        ) : activeSection === "applications" ? (
-          <AdminApplicationsSection />
+        ) : activeSection === "partnerVouchers" ? (
+          <AdminPartnerVouchersSection />
         ) : activeSection === "formRequests" ? (
           <AdminFormRequestsSection />
         ) : activeSection === "users" ? (
@@ -956,7 +1291,12 @@ export default function AdminDashboardPage() {
         ) : activeSection === "emailCampaigns" ? (
           <AdminEmailCampaignsSection />
         ) : activeSection === "settings" ? (
-          <AdminSettingsSection adminName={adminName || "Admin"} adminRole={adminRole} />
+          <AdminSettingsSection
+            adminName={adminName || "Admin"}
+            adminRole={adminRole}
+            activeTab={settingsTab}
+            onTabChange={setSettingsTab}
+          />
         ) : activeSection === "staff" ? (
           <AdminStaffSection />
         ) : (
@@ -1031,6 +1371,7 @@ export default function AdminDashboardPage() {
             </div>
           </>
         )}
+        </div>
       </div>
     </main>
   );

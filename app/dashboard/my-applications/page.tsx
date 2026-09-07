@@ -44,6 +44,9 @@ type Purchase = {
     submittedAt?: string | null;
     programmes?: RankedProgrammeChoice[];
     programme?: string | null;
+    admittedProgramme?: string | null;
+    admittedProgrammeStream?: string | null;
+    offerResponse?: "accepted" | "declined" | null;
     detail?: ApplicationSummaryDetail | null;
   } | null;
 };
@@ -67,6 +70,7 @@ export default function MyApplicationsPage() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [offerBusy, setOfferBusy] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -122,6 +126,55 @@ export default function MyApplicationsPage() {
     () => purchases.find((item) => item.id === selectedId) || null,
     [purchases, selectedId],
   );
+
+  const respondToOffer = async (response: "accepted" | "declined") => {
+    const application = selected?.application;
+    const email =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("tg_user_email")
+        : null;
+    if (!application?.id || !email) return;
+    setOfferBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/apply/offer-response", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          applicationId: application.id,
+          email,
+          response,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not save your response");
+      setPurchases((prev) =>
+        prev.map((item) => {
+          if (item.id !== selected?.id || !item.application) return item;
+          return {
+            ...item,
+            application: {
+              ...item.application,
+              offerResponse: response,
+              admittedProgramme:
+                data.application?.admittedProgramme ??
+                item.application.admittedProgramme,
+              admittedProgrammeStream:
+                data.application?.admittedProgrammeStream ??
+                item.application.admittedProgrammeStream,
+              detail: data.application
+                ? { ...item.application.detail, ...data.application }
+                : item.application.detail,
+            },
+          };
+        }),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save your response");
+    } finally {
+      setOfferBusy(false);
+    }
+  };
 
   const deadlineExpired = selected
     ? isDeadlineCalendarExpired(selected.deadline ?? null)
@@ -329,6 +382,21 @@ export default function MyApplicationsPage() {
                       status={selected.application.status}
                       schoolName={selected.schoolName}
                       reviewNotes={selected.application.detail?.reviewNotes}
+                      admittedProgramme={
+                        selected.application.admittedProgramme ||
+                        selected.application.detail?.admittedProgramme
+                      }
+                      admittedProgrammeStream={
+                        selected.application.admittedProgrammeStream ||
+                        selected.application.detail?.admittedProgrammeStream
+                      }
+                      offerResponse={
+                        selected.application.offerResponse ||
+                        selected.application.detail?.offerResponse
+                      }
+                      onAcceptOffer={() => void respondToOffer("accepted")}
+                      onDeclineOffer={() => void respondToOffer("declined")}
+                      offerBusy={offerBusy}
                       compact
                     />
                   ) : (

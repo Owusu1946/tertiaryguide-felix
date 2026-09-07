@@ -44,6 +44,13 @@ export function resolvePaymentReturnOrigin(candidate?: string | null): string {
 }
 
 /** Public page that verifies Paystack and redirects into My Forms. */
-export function paymentReturnCallbackUrl(origin?: string | null): string {
-  return `${resolvePaymentReturnOrigin(origin)}/payments/return`;
+export function paymentReturnCallbackUrl(
+  origin?: string | null,
+  opts?: { from?: "partner" | "form" },
+): string {
+  const base = `${resolvePaymentReturnOrigin(origin)}/payments/return`;
+  if (opts?.from === "partner" || opts?.from === "form") {
+    return `${base}?from=${opts.from}`;
+  }
+  return base;
 }

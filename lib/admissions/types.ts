@@ -220,6 +220,12 @@ export type ApplicationDoc = {
   examinationSittings?: ExaminationSitting[];
   results?: ExamResult[];
   documents?: UploadedDocuments;
+  /** Programme the school assigned when admitting the student. */
+  admittedProgramme?: string | null;
+  admittedProgrammeStream?: string | null;
+  /** Student response to an admission offer. */
+  offerResponse?: "accepted" | "declined" | null;
+  offerRespondedAt?: Date | null;
   submittedAt: Date;
   updatedAt: Date;
   reviewedAt?: Date | null;

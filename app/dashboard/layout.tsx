@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
+import { UserInitialsAvatar } from "../components/UserInitialsAvatar";
 
 export default function DashboardLayout({
   children,
@@ -15,7 +16,6 @@ export default function DashboardLayout({
   const router = useRouter();
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [userName, setUserName] = useState("");
-  const [avatar, setAvatar] = useState("/hero/avatar.png");
   const [isLoaded, setIsLoaded] = useState(false);
 
   React.useEffect(() => {
@@ -37,18 +37,13 @@ export default function DashboardLayout({
       const cached = window.localStorage.getItem("tg_user_name");
       if (cached) setUserName(cached);
 
-      const cachedAvatar = window.localStorage.getItem("tg_user_avatar");
-      if (cachedAvatar) setAvatar(cachedAvatar);
-
-      if (cached || cachedAvatar) setIsLoaded(true);
+      if (cached) setIsLoaded(true);
     }
 
     const updateFromCache = () => {
       if (typeof window !== "undefined") {
         const cachedName = window.localStorage.getItem("tg_user_name");
         if (cachedName) setUserName(cachedName);
-        const cachedAvatar = window.localStorage.getItem("tg_user_avatar");
-        if (cachedAvatar) setAvatar(cachedAvatar);
       }
     };
 
@@ -78,13 +73,6 @@ export default function DashboardLayout({
           if (nameToDisplay) {
             setUserName(nameToDisplay);
             window.localStorage.setItem("tg_user_name", nameToDisplay);
-          }
-          if (data.user.profilePicture) {
-            setAvatar(data.user.profilePicture);
-            window.localStorage.setItem(
-              "tg_user_avatar",
-              data.user.profilePicture,
-            );
           }
           setIsLoaded(true);
         }
@@ -133,15 +121,10 @@ export default function DashboardLayout({
         <main className="flex flex-col gap-6 md:gap-8">
           {/* Profile */}
           <div className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white px-4 py-4 shadow-sm sm:px-5">
-            {!isLoaded && !avatar ? (
+            {!isLoaded && !userName ? (
               <div className="h-12 w-12 shrink-0 animate-pulse rounded-full bg-gray-200 sm:h-14 sm:w-14" />
             ) : (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={avatar || "/woman.png"}
-                alt="User Avatar"
-                className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-white sm:h-14 sm:w-14"
-              />
+              <UserInitialsAvatar name={userName} size="lg" className="ring-white" />
             )}
             {!isLoaded && !userName ? (
               <div className="h-6 w-32 animate-pulse rounded bg-gray-200" />

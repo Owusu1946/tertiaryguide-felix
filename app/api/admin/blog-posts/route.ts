@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "../../../../lib/mongodb";
+import { notifyNewsOptInUsers } from "../../../../lib/user-notifications-server";
 
 interface BlogPostDoc {
   _id?: ObjectId;
@@ -150,6 +151,18 @@ export async function POST(req: NextRequest) {
     };
 
     const result = await posts.insertOne(doc);
+
+    if (status === "Published") {
+      void notifyNewsOptInUsers(db, {
+        title: "New on TertiaryGuide News",
+        body: titleRaw,
+        kind: "news",
+        href: `/blog/${slug}`,
+        dedupeKey: `blog-post:${String(result.insertedId)}`,
+      }).catch((err) =>
+        console.error("[admin/blog-posts] notify users", err),
+      );
+    }
 
     return NextResponse.json(
       {

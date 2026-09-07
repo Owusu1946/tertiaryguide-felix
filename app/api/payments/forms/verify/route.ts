@@ -41,6 +41,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const product = tx.metadata?.product;
+    // Secured / apply-online vouchers are fulfilled by /api/apply/voucher/verify
+    if (product === "partner_voucher") {
+      return NextResponse.json(
+        { error: "Use partner voucher verification for this payment" },
+        { status: 400 },
+      );
+    }
+
     const schoolIdRaw = tx.metadata?.schoolId;
     if (typeof schoolIdRaw !== "string" || !ObjectId.isValid(schoolIdRaw)) {
       return NextResponse.json(
@@ -53,6 +62,21 @@ export async function GET(req: NextRequest) {
     const programmeLevel = normalizeProgrammeLevel(tx.metadata?.programmeLevel);
 
     const db = await getDb();
+
+    const schoolsCol = db.collection<{
+      _id: ObjectId;
+      name: string;
+      isPartner?: boolean;
+    }>("schools");
+
+    const schoolDoc = await schoolsCol.findOne({ _id: schoolId });
+    // Partner (secured) schools auto-generate admission vouchers — never drain admin stock here
+    if (schoolDoc?.isPartner) {
+      return NextResponse.json(
+        { error: "Use partner voucher verification for this payment" },
+        { status: 400 },
+      );
+    }
 
     const vouchers = db.collection<{
       _id?: ObjectId;
@@ -109,12 +133,6 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const schoolsCol = db.collection<{
-      _id: ObjectId;
-      name: string;
-    }>("schools");
-
-    const schoolDoc = await schoolsCol.findOne({ _id: schoolId });
     const schoolName = schoolDoc?.name?.trim() || "University";
 
     const availableCount = await vouchers.countDocuments({

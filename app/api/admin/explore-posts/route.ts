@@ -11,6 +11,7 @@ import {
   type ExplorePostType,
 } from "@/lib/explore/types";
 import { parseOptionalEmail, parseOptionalText } from "@/lib/ad-analytics";
+import { notifyAllStudents } from "@/lib/user-notifications-server";
 
 function parseMedia(raw: unknown): ExploreMedia[] {
   if (!Array.isArray(raw)) return [];
@@ -150,6 +151,19 @@ export async function POST(req: NextRequest) {
     const db = await getDb();
     await ensureExploreIndexes(db);
     const result = await explorePostsCollection(db).insertOne(doc);
+
+    if (status === "Published") {
+      const snippet = text.slice(0, 120) || "A new update is live on Explore.";
+      void notifyAllStudents(db, {
+        title: "New Explore post",
+        body: `${authorName}: ${snippet}${snippet.length >= 120 ? "…" : ""}`,
+        kind: "explore",
+        href: "/explore",
+        dedupeKey: `explore-post:${String(result.insertedId)}`,
+      }).catch((err) =>
+        console.error("[admin/explore-posts] notify students", err),
+      );
+    }
 
     return NextResponse.json({
       ok: true,

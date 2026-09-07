@@ -120,6 +120,12 @@ export function serializeApplication(doc: ApplicationDoc) {
     examinationSittings: doc.examinationSittings ?? [],
     results: doc.results ?? [],
     documents: doc.documents ?? null,
+    admittedProgramme: doc.admittedProgramme ?? null,
+    admittedProgrammeStream: doc.admittedProgrammeStream ?? null,
+    offerResponse: doc.offerResponse ?? null,
+    offerRespondedAt: doc.offerRespondedAt
+      ? doc.offerRespondedAt.toISOString()
+      : null,
     submittedAt:
       doc.submittedAt instanceof Date
         ? doc.submittedAt.toISOString()

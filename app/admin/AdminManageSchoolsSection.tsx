@@ -8,7 +8,7 @@ import {
 } from "@/lib/admissions/programme-level";
 
 type AdminManageSchoolsSectionProps = {
-  onBack: () => void;
+  onBack?: () => void;
 };
 
 type AdminSchool = {
@@ -652,15 +652,28 @@ export function AdminManageSchoolsSection({ onBack }: AdminManageSchoolsSectionP
   }
 
   return (
-    <section className="mt-6 min-w-0 rounded-3xl bg-[#F9FAFB] p-4 text-sm text-[#111827] sm:p-5">
+    <div className="min-w-0 space-y-4 text-sm text-[#111827]">
+      <section className="space-y-2 rounded-3xl border border-[#BFDBFE] bg-gradient-to-r from-[#EAF4FF] via-white to-[#F2F8FF] px-5 py-5 shadow-sm">
+        <p className="text-xs font-medium text-[#9CA3AF]">
+          Dashboard / <span className="text-[#111827]">Manage schools</span>
+        </p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#007AFF] md:text-3xl">
+          Manage schools
+        </h1>
+        <p className="text-sm text-[#6B7280]">
+          Configure the schools and forms you offer to students and the programmes
+          they offer.
+        </p>
+      </section>
+
+      <section className="min-w-0 rounded-3xl bg-[#F9FAFB] p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-[#111827]">
-            Manage schools
+            School catalogue
           </h2>
           <p className="text-xs text-[#6B7280]">
-            Configure the schools and forms you offer to students and the programmes
-            they offer.
+            Add schools, stock vouchers, and manage programmes.
           </p>
         </div>
         <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
@@ -690,13 +703,15 @@ export function AdminManageSchoolsSection({ onBack }: AdminManageSchoolsSectionP
           >
             {addSchoolOpen ? "Close" : "Add school"}
           </button>
-          <button
-            type="button"
-            onClick={onBack}
-            className="rounded-full border border-[#E5E7EB] px-4 py-2 text-xs font-medium text-[#111827] hover:bg-[#F3F4F6]"
-          >
-            Back to forms
-          </button>
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded-full border border-[#E5E7EB] px-4 py-2 text-xs font-medium text-[#111827] hover:bg-[#F3F4F6]"
+            >
+              Back to forms
+            </button>
+          )}
         </div>
       </div>
 
@@ -1273,6 +1288,7 @@ export function AdminManageSchoolsSection({ onBack }: AdminManageSchoolsSectionP
           )}
         </div>
       </div>
-    </section>
+      </section>
+    </div>
   );
 }

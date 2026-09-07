@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  ArrowLeft,
   CheckCircle2,
   GraduationCap,
   Loader2,
@@ -250,20 +251,20 @@ function ApplicantPortalContent() {
 
   return (
     <div
-      className="min-h-screen bg-[#F7F9FC] text-[#0F172A]"
+      className="min-h-screen bg-[linear-gradient(135deg,#F8FAFC_0%,#EFF6FF_48%,#F8FAFC_100%)] text-[#0F172A]"
       style={themeStyle}
     >
       <Header />
-      <main className="mx-auto max-w-5xl px-4 pt-4 pb-10 sm:px-6 md:pt-5">
-        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <main className="mx-auto max-w-5xl px-4 pt-6 pb-12 sm:px-6 md:pt-8">
+        <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#94A3B8]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--school-brand,#007AFF)]">
               Student portal
             </p>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] sm:text-4xl">
               My application
             </h1>
-            <p className="mt-1 text-sm text-[#6B7280]">
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[#64748B]">
               Check status, review your chosen programmes, and edit while the
               school is still reviewing.
             </p>
@@ -272,9 +273,10 @@ function ApplicantPortalContent() {
             <button
               type="button"
               onClick={handleLogout}
-              className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-medium sm:self-center"
+              aria-label="Log out of the student portal"
+              className="inline-flex shrink-0 items-center gap-2 self-start rounded-full border border-[#E2E8F0] bg-white/90 px-4 py-2 text-xs font-semibold text-[#334155] shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-[#CBD5E1] hover:bg-white hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--school-brand,#007AFF)] focus-visible:ring-offset-2 sm:self-center"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
               Log out
             </button>
           ) : null}
@@ -372,12 +374,15 @@ function ApplicantPortalContent() {
           </section>
         ) : (
           <div className="space-y-6">
-            <section className="overflow-hidden rounded-[28px] border border-[#E8EEF5] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
-              <div className="bg-gradient-to-br from-[var(--school-brand-soft,#DBEAFE)] to-white px-6 py-6">
-                <p className="text-sm font-medium text-[#64748B]">{session.schoolName}</p>
+            <section className="overflow-hidden rounded-[32px] border border-white/80 bg-white/95 shadow-[0_20px_55px_rgba(15,23,42,0.09)] backdrop-blur">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[var(--school-brand-soft,#DBEAFE)] via-white to-white px-6 py-7 sm:px-8">
+                <div className="absolute inset-y-0 left-0 w-1 bg-[var(--school-brand,#007AFF)]" />
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">
+                  {session.schoolName}
+                </p>
                 {session.application ? (
                   <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <h2 className="text-xl font-semibold tracking-tight">
+                    <h2 className="text-2xl font-bold tracking-[-0.025em]">
                       {session.application.fullName}
                     </h2>
                   </div>
@@ -386,7 +391,7 @@ function ApplicantPortalContent() {
                 )}
               </div>
               {session.application ? (
-                <div className="space-y-6 px-6 py-6">
+                <div className="space-y-7 px-6 py-6 sm:px-8 sm:py-8">
                   <ApplicationStatusCard
                     status={session.application.status}
                     schoolName={session.schoolName}
@@ -394,7 +399,7 @@ function ApplicantPortalContent() {
                   />
 
                   <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl bg-[#F8FAFC] px-4 py-3">
+                    <div className="rounded-2xl border border-[#EEF2F7] bg-[#F8FAFC] px-4 py-3.5">
                       <dt className="text-xs font-medium uppercase tracking-wide text-[#94A3B8]">
                         Application number
                       </dt>
@@ -402,7 +407,7 @@ function ApplicantPortalContent() {
                         {session.application.applicationNumber}
                       </dd>
                     </div>
-                    <div className="rounded-2xl bg-[#F8FAFC] px-4 py-3">
+                    <div className="rounded-2xl border border-[#EEF2F7] bg-[#F8FAFC] px-4 py-3.5">
                       <dt className="text-xs font-medium uppercase tracking-wide text-[#94A3B8]">
                         Submitted
                       </dt>
@@ -410,7 +415,7 @@ function ApplicantPortalContent() {
                         {new Date(session.application.submittedAt).toLocaleString()}
                       </dd>
                     </div>
-                    <div className="rounded-2xl bg-[#F8FAFC] px-4 py-3">
+                    <div className="rounded-2xl border border-[#EEF2F7] bg-[#F8FAFC] px-4 py-3.5">
                       <dt className="text-xs font-medium uppercase tracking-wide text-[#94A3B8]">
                         Last updated
                       </dt>
@@ -420,10 +425,10 @@ function ApplicantPortalContent() {
                     </div>
                   </dl>
 
-                  <div className="rounded-[24px] border border-[#EEF2F7] bg-[#F8FBFF] p-4 sm:p-5">
+                  <div className="rounded-[26px] border border-[#DCEBFA] bg-[linear-gradient(145deg,#F8FBFF,#F1F7FF)] p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-5">
                     <div className="mb-4 flex items-center gap-2">
                       <GraduationCap className="h-4 w-4 text-[var(--school-brand,#007AFF)]" />
-                      <h3 className="text-sm font-semibold text-[#0F172A]">
+                      <h3 className="text-sm font-bold text-[#0F172A]">
                         Chosen programmes
                       </h3>
                     </div>
@@ -460,8 +465,9 @@ function ApplicantPortalContent() {
                     )}
                     <Link
                       href="/dashboard/my-forms"
-                      className="inline-flex items-center justify-center rounded-full border border-[#E2E8F0] px-4 py-2 text-sm font-medium text-[#334155]"
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-[#D7E0EA] bg-white px-4 py-2.5 text-sm font-semibold text-[#334155] shadow-sm transition hover:-translate-y-0.5 hover:border-[#B9C7D8] hover:bg-[#F8FAFC] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--school-brand,#007AFF)] focus-visible:ring-offset-2"
                     >
+                      <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                       Back to My Forms
                     </Link>
                   </div>

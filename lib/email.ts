@@ -1,6 +1,7 @@
 import { Resend } from "resend";
+import { readFile } from "fs/promises";
+import path from "path";
 import { absoluteUrl } from "./site-url";
-import { studentStatusCopy } from "./admissions/status-messages";
 
 const apiKey = process.env.RESEND_API_KEY;
 const fromEmailEnv = process.env.EMAIL_FROM;
@@ -12,6 +13,10 @@ if (!apiKey || !fromEmailEnv) {
 
 const resend = new Resend(apiKey);
 const FROM_EMAIL: string = fromEmailEnv as string;
+
+async function readPublicImage(relativePath: string): Promise<Buffer> {
+  return readFile(path.join(process.cwd(), "public", relativePath));
+}
 
 export async function sendOtpEmail(opts: {
   to: string;
@@ -143,7 +148,6 @@ export async function sendWelcomeEmail(opts: {
 }): Promise<void> {
   const { to, username } = opts;
   const siteUrl = absoluteUrl("/");
-  const logoUrl = absoluteUrl("/hero/logoTguide.png");
   const exploreUrl = absoluteUrl("/explore");
   const formsUrl = absoluteUrl("/university-forms");
   const wassceUrl = absoluteUrl("/wassce-checker");
@@ -156,21 +160,27 @@ export async function sendWelcomeEmail(opts: {
   const greetingName = (username || "").trim();
   const greeting = greetingName ? `Hello ${greetingName},` : "Hello,";
 
-  const features: { title: string; body: string; href: string; extra?: string }[] =
-    [
+  // Resend JSON-encodes attachments — content MUST be base64 strings, not Buffers.
+  const [logoB64, exploreB64, compareB64] = await Promise.all([
+    readPublicImage("email/welcome-logo.png").then((b) => b.toString("base64")),
+    readPublicImage("email/welcome-explore.jpg").then((b) => b.toString("base64")),
+    readPublicImage("email/welcome-compare.jpg").then((b) => b.toString("base64")),
+  ]);
+
+  const features: { title: string; body: string; href: string }[] = [
       {
         title: "Buy University Application Forms",
-        body: "Purchase admission forms for top universities — including teacher training and nursing training — directly through the platform. No queues, no stress.",
+      body: "Purchase admission forms for top universities, including teacher training and nursing training, directly through the platform. No queues, no stress.",
         href: formsUrl,
       },
       {
         title: "WASSCE Checker Vouchers",
-        body: "Get your WASSCE checker PIN instantly after payment — no more back-and-forth on WhatsApp groups.",
+      body: "Get your WASSCE checker PIN instantly after payment. No more back and forth on WhatsApp groups.",
         href: wassceUrl,
       },
       {
         title: "Find & Compare Programmes",
-        body: "Compare programmes across institutions side by side — save days of hunting through PDFs and school websites.",
+      body: "Compare programmes across institutions side by side and save days of hunting through PDFs and school websites.",
         href: programmesUrl,
       },
       {
@@ -190,23 +200,25 @@ export async function sendWelcomeEmail(opts: {
       },
       {
         title: "Guides Written For You",
-        body: "Our blog and FAQ cover everything from financial aid to thriving in your first semester — especially helpful if you're a first-generation applicant navigating this alone.",
+      body: "Our blog and FAQ cover everything from financial aid to thriving in your first semester, especially helpful if you're a first generation applicant navigating this alone.",
         href: blogUrl,
-        extra: `<a href="${escapeHtml(faqsUrl)}" style="color:#007AFF;text-decoration:underline;">Read FAQs</a>`,
       },
     ];
 
-  const subject = "Welcome to TertiaryGuide — your account is ready";
+  const subject = "Welcome to TertiaryGuide";
   const text = [
     greeting,
     "",
     "Welcome to TertiaryGuide",
-    "Your account is ready. You're now one step closer to a stress-free journey through university admissions, programme search, and WASSCE results.",
+    "Your account is ready. You're now one step closer to a stress free journey through university admissions, programme search, and WASSCE results.",
     "",
     `Explore More: ${exploreUrl}`,
     "",
+    "Try Out Our Latest Compare Feature",
+    programmesUrl,
+    "",
     "Here's everything you can do on the platform",
-    "Built to make tertiary admissions in Ghana simpler, faster, and stress-free.",
+    "Built to make tertiary admissions in Ghana simpler, faster, and stress free.",
     "",
     ...features.flatMap((feature) => [
       feature.title,
@@ -217,61 +229,58 @@ export async function sendWelcomeEmail(opts: {
     `Explore More: ${exploreUrl}`,
     "",
     "The TertiaryGuide Team",
+    "www.tertiaryguide.com",
     siteUrl,
   ].join("\n");
 
   const featureRows = features
     .map(
-      (feature) => `
+      (feature, index) => `
           <tr>
-            <td style="padding:0 0 12px 0;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F8FAFC;border:1px solid #E8EEF5;border-radius:14px;">
-                <tr>
-                  <td style="padding:16px 18px;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-                    <p style="margin:0 0 6px 0;font-size:15px;font-weight:700;line-height:1.35;">
-                      <a href="${escapeHtml(feature.href)}" style="color:#0F172A;text-decoration:none;">
-                        ${escapeHtml(feature.title)}
-                      </a>
-                    </p>
-                    <p style="margin:0 0 10px 0;font-size:13px;line-height:1.6;color:#475569;">
-                      ${escapeHtml(feature.body)}
-                    </p>
-                    <p style="margin:0;font-size:13px;font-weight:600;">
-                      <a href="${escapeHtml(feature.href)}" style="color:#007AFF;text-decoration:none;">
-                        Open this on TertiaryGuide →
-                      </a>
-                      ${feature.extra ? `&nbsp;·&nbsp; ${feature.extra}` : ""}
-                    </p>
-                  </td>
-                </tr>
-              </table>
+            <td style="padding:${index === 0 ? "16px" : "20px"} 0 ${index < features.length - 1 ? "20px" : "0"} 0;${index < features.length - 1 ? "border-bottom:1px solid #E8EEF5;" : ""}font-family:Arial,Helvetica,sans-serif;">
+              <p style="margin:0 0 6px 0;font-size:16px;font-weight:700;line-height:1.35;color:#0B1220;">
+                <a href="${escapeHtml(feature.href)}" style="color:#0B1220;text-decoration:none;">${escapeHtml(feature.title)}</a>
+              </p>
+              <p style="margin:0;font-size:14px;line-height:1.65;color:#475569;">
+                ${escapeHtml(feature.body)}${
+                  feature.href === blogUrl
+                    ? ` <a href="${escapeHtml(faqsUrl)}" style="color:#007AFF;text-decoration:underline;">Read FAQs</a>`
+                    : ""
+                }
+              </p>
             </td>
           </tr>`,
     )
     .join("");
 
   const exploreButton = `
-              <a
-                href="${escapeHtml(exploreUrl)}"
-                style="
-                  display:inline-block;
-                  padding:14px 28px;
-                  border-radius:9999px;
-                  background-color:#007AFF;
-                  color:#ffffff !important;
-                  font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-                  font-size:15px;
-                  font-weight:700;
-                  text-decoration:none;
-                  box-shadow:0 8px 20px rgba(0,122,255,0.25);
-                "
-              >Explore More →</a>`;
+              <a href="${escapeHtml(exploreUrl)}" style="display:inline-block;padding:14px 32px;border-radius:8px;background-color:#007AFF;color:#ffffff !important;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;text-decoration:none;line-height:1;">Explore More →</a>`;
 
   const result = await resend.emails.send({
     from: FROM_EMAIL,
     to,
     subject,
     text,
+    attachments: [
+      {
+        filename: "welcome-logo.png",
+        content: logoB64,
+        contentType: "image/png",
+        contentId: "tg-logo",
+      },
+      {
+        filename: "welcome-explore.jpg",
+        content: exploreB64,
+        contentType: "image/jpeg",
+        contentId: "tg-explore",
+      },
+      {
+        filename: "welcome-compare.jpg",
+        content: compareB64,
+        contentType: "image/jpeg",
+        contentId: "tg-compare",
+      },
+    ],
     html: `
 <!DOCTYPE html>
 <html lang="en">
@@ -280,66 +289,80 @@ export async function sendWelcomeEmail(opts: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${escapeHtml(subject)}</title>
 </head>
-<body style="margin:0;padding:0;background-color:#F3F4F6;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F3F4F6;padding:32px 16px;">
+<body style="margin:0;padding:0;background-color:#FFFFFF;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+    Your account is ready. Explore forms, WASSCE checkers, programmes, and deadlines on TertiaryGuide.
+  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FFFFFF;">
     <tr>
-      <td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background-color:#ffffff;border-radius:20px;overflow:hidden;border:1px solid #E5E7EB;">
+      <td align="center" style="padding:0;">
+        <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:640px;background-color:#FFFFFF;">
           <tr>
-            <td style="padding:28px 32px 20px 32px;background:linear-gradient(180deg,#F0F7FF 0%,#FFFFFF 100%);border-bottom:1px solid #E8EEF5;">
+            <td align="left" style="padding:28px 24px 16px 24px;">
               <a href="${escapeHtml(siteUrl)}" style="text-decoration:none;">
-                <img
-                  src="${escapeHtml(logoUrl)}"
-                  alt="TertiaryGuide"
-                  width="168"
-                  height="40"
-                  style="display:block;height:40px;width:auto;max-width:180px;border:0;"
-                />
+                <img src="cid:tg-logo" alt="TertiaryGuide" width="168" height="26" style="display:block;width:168px;height:auto;border:0;outline:none;text-decoration:none;" />
               </a>
             </td>
           </tr>
+
           <tr>
-            <td style="padding:32px 32px 8px 32px;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0F172A;">
-              <p style="margin:0 0 8px 0;font-size:14px;color:#475569;">${escapeHtml(greeting)}</p>
-              <h1 style="margin:0 0 12px 0;font-size:26px;line-height:1.25;font-weight:700;color:#0F172A;">
+            <td style="padding:0 24px 8px 24px;">
+              <a href="${escapeHtml(exploreUrl)}" style="display:block;text-decoration:none;">
+                <img src="cid:tg-explore" alt="Discover Convenience at TertiaryGuide" width="592" style="display:block;width:100%;max-width:592px;height:auto;border:0;outline:none;border-radius:12px;" />
+              </a>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:28px 24px 8px 24px;font-family:Arial,Helvetica,sans-serif;color:#0B1220;">
+              <p style="margin:0 0 10px 0;font-size:14px;line-height:1.4;color:#64748B;">${escapeHtml(greeting)}</p>
+              <h1 style="margin:0 0 12px 0;font-size:30px;line-height:1.2;font-weight:700;color:#0B1220;">
                 Welcome to TertiaryGuide
               </h1>
-              <p style="margin:0;font-size:15px;line-height:1.65;color:#475569;">
-                Your account is ready. You're now one step closer to a stress-free journey through university admissions, programme search, and WASSCE results.
+              <p style="margin:0;font-size:16px;line-height:1.65;color:#475569;">
+                Your account is ready. You're now one step closer to a stress free journey through university admissions, programme search, and WASSCE results.
               </p>
             </td>
           </tr>
+
           <tr>
-            <td align="center" style="padding:24px 32px 8px 32px;">
+            <td align="left" style="padding:24px 24px 8px 24px;">
               ${exploreButton}
             </td>
           </tr>
+
           <tr>
-            <td style="padding:28px 32px 8px 32px;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-              <p style="margin:0 0 6px 0;font-size:13px;font-weight:700;color:#0F172A;text-transform:uppercase;letter-spacing:0.04em;">
+            <td style="padding:24px 24px 0 24px;">
+              <a href="${escapeHtml(programmesUrl)}" style="display:block;text-decoration:none;">
+                <img src="cid:tg-compare" alt="Try Out Our Latest Compare Feature" width="592" style="display:block;width:100%;max-width:592px;height:auto;border:0;outline:none;border-radius:10px;" />
+              </a>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:32px 24px 8px 24px;font-family:Arial,Helvetica,sans-serif;">
+              <h2 style="margin:0 0 8px 0;font-size:20px;line-height:1.3;font-weight:700;color:#0B1220;">
                 Here's everything you can do on the platform
-              </p>
-              <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#475569;">
-                Built to make tertiary admissions in Ghana simpler, faster, and stress-free.
+              </h2>
+              <p style="margin:0 0 4px 0;font-size:14px;line-height:1.6;color:#64748B;">
+                Built to make tertiary admissions in Ghana simpler, faster, and stress free.
               </p>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 ${featureRows}
               </table>
             </td>
           </tr>
+
           <tr>
-            <td align="center" style="padding:12px 32px 28px 32px;">
+            <td align="left" style="padding:28px 24px 36px 24px;">
               ${exploreButton}
             </td>
           </tr>
+
           <tr>
-            <td style="padding:22px 32px;background-color:#0B1220;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-              <p style="margin:0 0 6px 0;font-size:14px;font-weight:600;color:#FFFFFF;">
-                The TertiaryGuide Team
-              </p>
-              <a href="${escapeHtml(siteUrl)}" style="font-size:12px;color:#60A5FA;text-decoration:none;">
-                tertiaryguide.com
-              </a>
+            <td style="padding:20px 24px 36px 24px;border-top:1px solid #E8EEF5;font-family:Arial,Helvetica,sans-serif;">
+              <p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0B1220;">The TertiaryGuide Team</p>
+              <a href="${escapeHtml(siteUrl)}" style="font-size:13px;color:#007AFF;text-decoration:none;">www.tertiaryguide.com</a>
             </td>
           </tr>
         </table>
@@ -781,9 +804,18 @@ export async function sendPartnerVoucherEmail(opts: {
   serialNumber: string;
   applyUrl: string;
   portalUrl?: string;
+  myFormsUrl?: string;
 }): Promise<void> {
-  const { to, fullName, schoolName, voucherCode, serialNumber, applyUrl, portalUrl } =
-    opts;
+  const {
+    to,
+    fullName,
+    schoolName,
+    voucherCode,
+    serialNumber,
+    applyUrl,
+    portalUrl,
+    myFormsUrl,
+  } = opts;
 
   // Student-facing labels match Ghana voucher format: Serial + PIN
   const serial = serialNumber;
@@ -796,6 +828,7 @@ export async function sendPartnerVoucherEmail(opts: {
   const portal =
     portalUrl ||
     `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/apply/portal`;
+  const formsUrl = myFormsUrl || absoluteUrl("/dashboard/my-forms");
 
   console.log("[sendPartnerVoucherEmail] Sending voucher to student", {
     to,
@@ -816,6 +849,7 @@ export async function sendPartnerVoucherEmail(opts: {
       `Serial Number: ${serial}`,
       `PIN: ${pin}`,
       "",
+      `View this voucher anytime in My Forms: ${formsUrl}`,
       `Continue your application: ${applyUrl}`,
       `Check status / edit later: ${portal}`,
       "",
@@ -830,6 +864,7 @@ export async function sendPartnerVoucherEmail(opts: {
           <p style="margin:0 0 12px;font-size:16px;">Hello${fullName ? ` <strong>${escapeHtml(fullName)}</strong>` : ""},</p>
           <p style="margin:0 0 16px;font-size:14px;line-height:1.5;color:#4B5563;">
             Payment confirmed. Your admission voucher for <strong>${escapeHtml(schoolName)}</strong> is ready.
+            Serial and PIN also appear on your <strong>My Forms</strong> flip cards.
           </p>
           <div style="margin:0 0 16px;padding:14px;border-radius:12px;background:linear-gradient(135deg,#007AFF0D,#EEF2FF);border:1px solid #E5E7EB;">
             <p style="margin:0 0 10px;font-size:14px;">
@@ -841,8 +876,13 @@ export async function sendPartnerVoucherEmail(opts: {
               <span style="margin-left:8px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;letter-spacing:0.04em;">${escapeHtml(pin)}</span>
             </p>
           </div>
-          <p style="margin:0 0 10px;">
-            <a href="${escapeHtml(applyUrl)}" style="display:inline-block;background:#007AFF;color:#fff;text-decoration:none;padding:10px 16px;border-radius:9999px;font-size:14px;font-weight:600;">
+          <p style="margin:0 0 10px;text-align:center;">
+            <a href="${escapeHtml(formsUrl)}" style="display:inline-block;background:#007AFF;color:#fff;text-decoration:none;padding:10px 16px;border-radius:9999px;font-size:14px;font-weight:600;">
+              Open My Forms
+            </a>
+          </p>
+          <p style="margin:0 0 16px;text-align:center;">
+            <a href="${escapeHtml(applyUrl)}" style="display:inline-block;background:#0F766E;color:#fff;text-decoration:none;padding:10px 16px;border-radius:9999px;font-size:14px;font-weight:600;">
               Continue application
             </a>
           </p>
@@ -871,49 +911,313 @@ export async function sendPartnerVoucherEmail(opts: {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Official transactional templates (Application Received / Institution Alert */
+/* / Admission Decision)                                                      */
+/* -------------------------------------------------------------------------- */
+
+const OFFICIAL_SUPPORT = {
+  email: "info@tertiaryguide.com",
+  phones: "+233 59 511 0767, +233 24 896 7314",
+  address: "Ho, Trafalgar, Ghana",
+} as const;
+
+function formatOfficialDate(date: Date): string {
+  return date.toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function normalizeDecisionStatus(status: string): string {
+  if (status === "accepted" || status === "Accepted") return "Approved";
+  return status;
+}
+
+function officialFooterText(): string[] {
+  return [
+    "",
+    `Questions? ${OFFICIAL_SUPPORT.email}  ·  ${OFFICIAL_SUPPORT.phones}`,
+    OFFICIAL_SUPPORT.address,
+    `© TertiaryGuide ${new Date().getFullYear()} · All rights reserved.`,
+  ];
+}
+
+function officialFooterHtml(): string {
+  const year = new Date().getFullYear();
+  return `
+    <tr>
+      <td style="padding:20px 32px 28px;border-top:1px solid #EEF2F7;">
+        <p style="margin:0 0 4px;font-size:11px;line-height:1.55;color:#6B7280;">
+          Questions?
+          <a href="mailto:${OFFICIAL_SUPPORT.email}" style="color:#007AFF;text-decoration:none;">${OFFICIAL_SUPPORT.email}</a>
+          · ${escapeHtml(OFFICIAL_SUPPORT.phones)}
+        </p>
+        <p style="margin:0 0 4px;font-size:11px;color:#9CA3AF;">${escapeHtml(OFFICIAL_SUPPORT.address)}</p>
+        <p style="margin:0;font-size:10px;color:#9CA3AF;">© TertiaryGuide ${year} · All rights reserved.</p>
+      </td>
+    </tr>`;
+}
+
+function cleanEmailValue(value: string): string {
+  return value
+    .replace(/[()[\]{}]/g, "")
+    .replace(/\s*[—–-]\s*/g, " · ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function officialDetailTable(
+  rows: Array<{ label: string; value: string }>,
+): string {
+  const body = rows
+    .map(
+      (row, index) => `
+      <tr>
+        <td style="padding:10px 0;${index < rows.length - 1 ? "border-bottom:1px solid #EEF2F7;" : ""}width:38%;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#64748B;vertical-align:top;">
+          ${escapeHtml(row.label)}
+        </td>
+        <td style="padding:10px 0;${index < rows.length - 1 ? "border-bottom:1px solid #EEF2F7;" : ""}font-size:13px;font-weight:600;color:#0F172A;vertical-align:top;">
+          ${escapeHtml(cleanEmailValue(row.value))}
+        </td>
+      </tr>`,
+    )
+    .join("");
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">
+      <tr>
+        <td style="padding:2px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${body}</table>
+        </td>
+      </tr>
+    </table>`;
+}
+
+function officialStepsHtml(
+  heading: string,
+  steps: Array<{ title: string; body: string }>,
+): string {
+  const items = steps
+    .map(
+      (step, i) => `
+      <tr>
+        <td style="padding:0 0 ${i < steps.length - 1 ? "12px" : "0"};vertical-align:top;width:26px;">
+          <span style="display:inline-block;width:22px;height:22px;border-radius:999px;background:#EEF6FF;color:#007AFF;font-size:11px;font-weight:700;line-height:22px;text-align:center;">${i + 1}</span>
+        </td>
+        <td style="padding:0 0 ${i < steps.length - 1 ? "12px" : "0"};vertical-align:top;">
+          <p style="margin:0 0 3px;font-size:13px;font-weight:700;color:#0F172A;">${escapeHtml(step.title)}</p>
+          <p style="margin:0;font-size:12px;line-height:1.5;color:#475569;">${step.body}</p>
+        </td>
+      </tr>`,
+    )
+    .join("");
+  return `
+    <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#64748B;">${escapeHtml(heading)}</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">${items}</table>`;
+}
+
+function officialCtaHtml(href: string, label: string, color = "#007AFF"): string {
+  return `
+    <p style="margin:0 0 18px;text-align:center;">
+      <a href="${escapeHtml(href)}" style="display:inline-block;background:${color};color:#ffffff !important;text-decoration:none;padding:11px 20px;border-radius:9999px;font-size:13px;font-weight:700;">
+        ${escapeHtml(label)}
+      </a>
+    </p>`;
+}
+
+function officialEmailDocument(opts: {
+  subject: string;
+  preheader?: string;
+  eyebrow?: string;
+  eyebrowColor?: string;
+  bodyHtml: string;
+}): string {
+  const logoUrl = absoluteUrl("/hero/logoTguide.png");
+  const siteUrl = absoluteUrl("/");
+  const preheader = opts.preheader
+    ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(opts.preheader)}</div>`
+    : "";
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(opts.subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#E8EEF5;">
+  ${preheader}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#E8EEF5;padding:28px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:640px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #DBE7F3;box-shadow:0 12px 28px rgba(15,23,42,0.07);">
+          <tr>
+            <td style="padding:0;background:#F7FAFF;">
+              <div style="height:3px;background:#007AFF;line-height:3px;font-size:0;">&nbsp;</div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="padding:22px 28px 18px;">
+                    <a href="${escapeHtml(siteUrl)}" style="display:inline-block;text-decoration:none;background:#ffffff;border:1px solid #D6E6FA;border-radius:14px;padding:10px 16px;box-shadow:0 6px 16px rgba(0,122,255,0.08);">
+                      <img src="${escapeHtml(logoUrl)}" alt="TertiaryGuide" width="148" height="34" style="display:block;border:0;outline:none;text-decoration:none;height:34px;width:auto;max-width:148px;" />
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:26px 32px 8px;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0F172A;">
+              ${
+                opts.eyebrow
+                  ? `<p style="margin:0 0 8px;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${opts.eyebrowColor || "#007AFF"};">${escapeHtml(opts.eyebrow)}</p>`
+                  : ""
+              }
+              ${opts.bodyHtml}
+            </td>
+          </tr>
+          ${officialFooterHtml()}
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function officialProgrammeChoicesHtml(
+  programmes: Array<{ label: string; display: string }>,
+): string {
+  if (programmes.length === 0) return "";
+  const rows = programmes
+    .map(
+      (row, index) => `
+      <tr>
+        <td style="padding:10px 0;${index < programmes.length - 1 ? "border-bottom:1px solid #EEF2F7;" : ""}width:32%;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#64748B;vertical-align:top;">
+          ${escapeHtml(cleanEmailValue(row.label))}
+        </td>
+        <td style="padding:10px 0;${index < programmes.length - 1 ? "border-bottom:1px solid #EEF2F7;" : ""}font-size:13px;font-weight:600;color:#0F172A;vertical-align:top;">
+          ${escapeHtml(cleanEmailValue(row.display))}
+        </td>
+      </tr>`,
+    )
+    .join("");
+  return `
+    <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#64748B;">Programme Choices</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;">
+      <tr>
+        <td style="padding:0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table>
+        </td>
+      </tr>
+    </table>`;
+}
+
+/** EMAIL TEMPLATE 01 — Application Received (student confirmation) */
 export async function sendApplicationSubmittedToApplicant(opts: {
   to: string;
   applicantName: string;
   schoolName: string;
   applicationNumber: string;
   submittedAt: Date;
+  programmes?: Array<{ label: string; display: string }>;
 }): Promise<void> {
-  const { to, applicantName, schoolName, applicationNumber, submittedAt } = opts;
-  const dateStr = submittedAt.toLocaleDateString("en-GB", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const {
+    to,
+    applicantName,
+    schoolName,
+    applicationNumber,
+    submittedAt,
+    programmes = [],
+  } = opts;
+  const dateStr = formatOfficialDate(submittedAt);
+  const trackUrl = absoluteUrl("/dashboard/my-applications");
+  const subject = `Application Received · ${schoolName}`;
+
+  const programmeTextLines =
+    programmes.length > 0
+      ? [
+          "Programme Choices",
+          ...programmes.map(
+            (p) =>
+              `${cleanEmailValue(p.label)}: ${cleanEmailValue(p.display)}`,
+          ),
+          "",
+        ]
+      : [];
+
+  const text = [
+    `Dear ${applicantName},`,
+    "",
+    "Thank you for submitting your application through TertiaryGuide. We are pleased to confirm that your application to",
+    `${schoolName} has been successfully received.`,
+    "",
+    "Please keep the details below for your records. You may need your Application Number when following up on the status of your application.",
+    "",
+    "Application Summary",
+      `Application Number: ${applicationNumber}`,
+    `Institution: ${schoolName}`,
+      `Submission Date: ${dateStr}`,
+    "Status: Received & Under Review",
+    "",
+    ...programmeTextLines,
+    "What Happens Next?",
+    `1. Application Review — The admissions office at ${schoolName} will review your submitted application and documents.`,
+    "2. Status Notification — You will receive an email notification as soon as your application status is updated.",
+    "3. Track Your Application — Log in to your TertiaryGuide dashboard at any time to check your application progress.",
+    "",
+    `Track My Application: ${trackUrl}`,
+    "",
+    `Please note: TertiaryGuide facilitates the submission of your application. Admission decisions are made solely by the institution. If you have questions about your application, please contact ${schoolName} directly.`,
+    ...officialFooterText(),
+  ].join("\n");
+
+  const bodyHtml = `
+    <p style="margin:0 0 12px;font-size:15px;">Dear <strong>${escapeHtml(applicantName)}</strong>,</p>
+    <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#334155;">
+      Thank you for submitting your application through TertiaryGuide. We are pleased to confirm that your application to
+      <strong>${escapeHtml(schoolName)}</strong> has been successfully received.
+    </p>
+    <p style="margin:0 0 14px;font-size:13px;line-height:1.55;color:#475569;">
+      Please keep the details below for your records. You may need your Application Number when following up on the status of your application.
+    </p>
+    <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#64748B;">Application Summary</p>
+    ${officialDetailTable([
+      { label: "Application Number", value: applicationNumber },
+      { label: "Institution", value: schoolName },
+      { label: "Submission Date", value: dateStr },
+      { label: "Status", value: "Received & Under Review" },
+    ])}
+    ${officialProgrammeChoicesHtml(programmes)}
+    ${officialStepsHtml("What Happens Next?", [
+      {
+        title: "Application Review",
+        body: `The admissions office at <strong>${escapeHtml(schoolName)}</strong> will review your submitted application and documents.`,
+      },
+      {
+        title: "Status Notification",
+        body: "You will receive an email notification as soon as your application status is updated.",
+      },
+      {
+        title: "Track Your Application",
+        body: "Log in to your TertiaryGuide dashboard at any time to check your application progress.",
+      },
+    ])}
+    ${officialCtaHtml(trackUrl, "Track My Application")}
+    <p style="margin:0 0 8px;font-size:12px;line-height:1.55;color:#64748B;">
+      <strong>Please note:</strong> TertiaryGuide facilitates the submission of your application. Admission decisions are made solely by the institution. If you have questions about your application, please contact <strong>${escapeHtml(schoolName)}</strong> directly.
+    </p>`;
 
   const result = await resend.emails.send({
     from: FROM_EMAIL,
     to,
-    subject: `Application received — ${schoolName}`,
-    text: [
-      `Hello ${applicantName},`,
-      "",
-      `We have received your application to ${schoolName}.`,
-      "",
-      `Application Number: ${applicationNumber}`,
-      `School: ${schoolName}`,
-      `Submission Date: ${dateStr}`,
-      "",
-      "You will be notified when your application status changes.",
-      "",
-      "The TertiaryGuide Team",
-    ].join("\n"),
-    html: `
-      <div style="font-family: system-ui, sans-serif; color: #111827; padding: 24px;">
-        <p>Hello <strong>${escapeHtml(applicantName)}</strong>,</p>
-        <p>We have received your application to <strong>${escapeHtml(schoolName)}</strong>.</p>
-        <ul>
-          <li><strong>Application Number:</strong> ${escapeHtml(applicationNumber)}</li>
-          <li><strong>School:</strong> ${escapeHtml(schoolName)}</li>
-          <li><strong>Submission Date:</strong> ${escapeHtml(dateStr)}</li>
-        </ul>
-        <p style="color:#6B7280;font-size:13px;">You will be notified when your application status changes.</p>
-      </div>
-    `,
+    subject,
+    text,
+    html: officialEmailDocument({
+      subject,
+      preheader: `Your application to ${schoolName} has been received.`,
+      eyebrow: "Application Received",
+      bodyHtml,
+    }),
   });
 
   if (result.error) {
@@ -921,13 +1225,16 @@ export async function sendApplicationSubmittedToApplicant(opts: {
   }
 }
 
+/** EMAIL TEMPLATE 02 — New Applicant Notification (institution alert) */
 export async function sendApplicationSubmittedToSchool(opts: {
   to: string;
   applicantName: string;
   programme?: string | null;
+  programmes?: Array<{ label: string; display: string }>;
   schoolName: string;
   applicationNumber: string;
   applicationUrl: string;
+  submittedAt?: Date;
   updated?: boolean;
   pdf?: { filename: string; content: Buffer };
 }): Promise<void> {
@@ -935,64 +1242,134 @@ export async function sendApplicationSubmittedToSchool(opts: {
     to,
     applicantName,
     programme,
+    programmes: programmesOpt,
     schoolName,
     applicationNumber,
     applicationUrl,
+    submittedAt = new Date(),
     updated = false,
     pdf,
   } = opts;
 
-  const heading = updated
-    ? `An application was updated for ${schoolName}. Please open your dashboard to review the latest details.`
-    : `You have received a new applicant at ${schoolName}. Please open your dashboard now to review this student.`;
+  const programmes =
+    programmesOpt && programmesOpt.length > 0
+      ? programmesOpt
+      : programme
+        ? [{ label: "1st choice", display: programme }]
+        : [];
+
+  const dateStr = formatOfficialDate(submittedAt);
   const subject = updated
-    ? `Updated applicant — review ${applicantName} on your ${schoolName} dashboard`
-    : `New applicant — review ${applicantName} on your ${schoolName} dashboard`;
-  const pdfNote = pdf
-    ? "The official application summary PDF is attached. Download it to review the full printout, then open your dashboard to change the student’s status."
-    : "Open your dashboard to review this student.";
+    ? `Updated Application · ${applicantName} · ${schoolName}`
+    : `New Application · ${applicantName} · ${schoolName}`;
+
+  const programmeTextLines =
+    programmes.length > 0
+      ? [
+          "Programme Choices",
+          ...programmes.map(
+            (p) =>
+              `${cleanEmailValue(p.label)}: ${cleanEmailValue(p.display)}`,
+          ),
+          "",
+        ]
+      : [];
+
+  const text = [
+    "Dear Admissions Team,",
+    "",
+    updated
+      ? `An applicant has updated their application to ${schoolName} via TertiaryGuide. Please log in to your institution dashboard to review the latest details.`
+      : `A new applicant has submitted an application to ${schoolName} via TertiaryGuide. Please log in to your institution dashboard to review, process, and respond to this application promptly.`,
+    "",
+    "Applicant Details",
+    `Applicant Name: ${cleanEmailValue(applicantName)}`,
+    `Application Number: ${cleanEmailValue(applicationNumber)}`,
+    `Submission Date: ${dateStr}`,
+    "Status: Awaiting Review",
+    "",
+    ...programmeTextLines,
+    pdf
+      ? "Application Summary PDF Attached — A complete application summary including the applicant's passport photograph, personal information, and programme choices has been attached to this email. Please download and review it before taking action on the dashboard."
+      : "Open your institution dashboard to review the full application record.",
+    "",
+    "Required Actions",
+    "1. Download & Review — Open the attached PDF when available to review the applicant's full details, photograph, and programme selections.",
+    "2. Log In to Dashboard — Visit your institution dashboard on TertiaryGuide to view the full application record.",
+    "3. Take Action — Use the dashboard to Approve, Reject, or Admit the applicant. The student will be notified automatically upon your decision.",
+    "",
+    `Open Dashboard to Review: ${applicationUrl}`,
+    "",
+    "Please respond in a timely manner. Applicants are notified in real time when their application status is updated. Prompt responses improve the applicant experience and your institution's credibility on the platform.",
+    "",
+    "This is an automated notification from TertiaryGuide. Please do not reply to this email.",
+    ...officialFooterText(),
+    ]
+      .filter((line, index, lines) => line !== "" || lines[index - 1] !== "")
+    .join("\n");
+
+  const detailRows = [
+    { label: "Applicant Name", value: applicantName },
+    { label: "Application Number", value: applicationNumber },
+    { label: "Submission Date", value: dateStr },
+    { label: "Status", value: "Awaiting Review" },
+  ];
+
+  const bodyHtml = `
+    <p style="margin:0 0 12px;font-size:15px;">Dear Admissions Team,</p>
+    <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#334155;">
+      ${
+        updated
+          ? `An applicant has updated their application to <strong>${escapeHtml(schoolName)}</strong> via TertiaryGuide. Please log in to your institution dashboard to review the latest details.`
+          : `A new applicant has submitted an application to <strong>${escapeHtml(schoolName)}</strong> via TertiaryGuide. Please log in to your institution dashboard to review, process, and respond to this application promptly.`
+      }
+    </p>
+    <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#64748B;">Applicant Details</p>
+    ${officialDetailTable(detailRows)}
+    ${officialProgrammeChoicesHtml(programmes)}
+        ${
+          pdf
+        ? `<p style="margin:0 0 14px;padding:12px 14px;background:#F0F7FF;border-left:3px solid #007AFF;border-radius:8px;font-size:12px;line-height:1.55;color:#1E3A5F;">
+            <strong>Application Summary PDF Attached</strong> — A complete application summary including the applicant's passport photograph, personal information, and programme choices has been attached. Please download and review it before taking action on the dashboard.
+          </p>`
+        : ""
+    }
+    ${officialStepsHtml("Required Actions", [
+      {
+        title: "Download & Review",
+        body: pdf
+          ? "Open the attached PDF to review the applicant's full details, photograph, and programme selections."
+          : "Review the applicant's full details and programme selections on your dashboard.",
+      },
+      {
+        title: "Log In to Dashboard",
+        body: "Visit your institution dashboard on TertiaryGuide to view the full application record.",
+      },
+      {
+        title: "Take Action",
+        body: "Use the dashboard to <strong>Approve</strong>, <strong>Reject</strong>, or <strong>Admit</strong> the applicant. The student will be notified automatically upon your decision.",
+      },
+    ])}
+    ${officialCtaHtml(applicationUrl, "Open Dashboard to Review")}
+    <p style="margin:0 0 10px;font-size:12px;line-height:1.55;color:#475569;">
+      Please respond in a timely manner. Applicants are notified in real time when their application status is updated.
+    </p>
+    <p style="margin:0;font-size:11px;color:#94A3B8;">
+      This is an automated notification from TertiaryGuide. Please do not reply to this email.
+    </p>`;
 
   const result = await resend.emails.send({
     from: FROM_EMAIL,
     to,
     subject,
-    text: [
-      "Hello,",
-      "",
-      heading,
-      "",
-      `Applicant: ${applicantName}`,
-      `Programme: ${programme || "Not specified"}`,
-      `Application Number: ${applicationNumber}`,
-      "",
-      pdfNote,
-      `Review on dashboard: ${applicationUrl}`,
-      "",
-      "TertiaryGuide Admissions",
-    ]
-      .filter((line, index, lines) => line !== "" || lines[index - 1] !== "")
-      .join("\n"),
-    html: `
-      <div style="font-family: system-ui, sans-serif; color: #111827; padding: 24px; max-width: 560px;">
-        <p>Hello,</p>
-        <p>${escapeHtml(heading)}</p>
-        <ul>
-          <li><strong>Applicant:</strong> ${escapeHtml(applicantName)}</li>
-          <li><strong>Programme:</strong> ${escapeHtml(programme || "Not specified")}</li>
-          <li><strong>Application Number:</strong> ${escapeHtml(applicationNumber)}</li>
-        </ul>
-        ${
-          pdf
-            ? `<p>The official application summary PDF is attached. Download it to review the printout (including the passport photograph and programme choices), then use your dashboard to approve, reject, or admit the student.</p>`
-            : `<p>Open your dashboard to review this student and update their status.</p>`
-        }
-        <p style="margin: 24px 0;">
-          <a href="${escapeHtml(applicationUrl)}" style="display:inline-block;background:#007AFF;color:#ffffff;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:600;">
-            Open dashboard to review
-          </a>
-        </p>
-      </div>
-    `,
+    text,
+    html: officialEmailDocument({
+      subject,
+      preheader: `${applicantName} applied to ${schoolName}.`,
+      eyebrow: updated ? "Updated Application" : "New Applicant Notification",
+      eyebrowColor: "#0F766E",
+      bodyHtml,
+    }),
     attachments: pdf
       ? [
           {
@@ -1009,6 +1386,17 @@ export async function sendApplicationSubmittedToSchool(opts: {
   }
 }
 
+type DecisionVariant = "admitted" | "approved" | "rejected" | "further_review";
+
+function resolveDecisionVariant(status: string): DecisionVariant {
+  const normalized = normalizeDecisionStatus(status);
+  if (normalized === "Rejected") return "rejected";
+  if (normalized === "Admitted") return "admitted";
+  if (normalized === "Approved") return "approved";
+  return "further_review";
+}
+
+/** EMAIL TEMPLATE 03 — Admission Decision (student outcome notification) */
 export async function sendApplicationStatusUpdateToApplicant(opts: {
   to: string;
   applicantName: string;
@@ -1016,7 +1404,9 @@ export async function sendApplicationStatusUpdateToApplicant(opts: {
   applicationNumber: string;
   status: string;
   programme?: string | null;
+  programmeMode?: string | null;
   reviewNotes?: string | null;
+  decisionDate?: Date;
 }): Promise<void> {
   const {
     to,
@@ -1025,96 +1415,318 @@ export async function sendApplicationStatusUpdateToApplicant(opts: {
     applicationNumber,
     status,
     programme,
+    programmeMode,
     reviewNotes,
+    decisionDate = new Date(),
   } = opts;
-  const copy = studentStatusCopy(status);
-  const portalUrl = absoluteUrl("/dashboard/my-forms");
-  const exploreUrl = absoluteUrl("/apply");
-  const firstName = applicantName.split(" ")[0] || "there";
-  const isCare = copy.tone === "care";
-  const accent = isCare ? "#B45309" : copy.tone === "success" ? "#047857" : "#007AFF";
 
-  const text = [
-    `Hello ${firstName},`,
-    "",
-    copy.title,
-    "",
-    copy.message,
-    "",
-    `School: ${schoolName}`,
+  const variant = resolveDecisionVariant(status);
+  const dateStr = formatOfficialDate(decisionDate);
+  const trackUrl = absoluteUrl("/dashboard/my-applications");
+  const exploreUrl = absoluteUrl("/explore");
+  const programmesUrl = absoluteUrl("/program-search");
+  const compareUrl = absoluteUrl("/program-search/compare");
+  const resourcesUrl = absoluteUrl("/blog");
+
+  let subject: string;
+  let eyebrow: string;
+  let eyebrowColor: string;
+  let preheader: string;
+  let text: string;
+  let bodyHtml: string;
+
+  if (variant === "admitted") {
+    const decisionLabel = "Admitted";
+    const programmeLabel = [programme, programmeMode]
+      .map((part) => (typeof part === "string" ? part.trim() : ""))
+      .filter(Boolean)
+      .join(" — ");
+    subject = `Congratulations! You've Been Admitted — ${schoolName} | TertiaryGuide`;
+    eyebrow = "Admission Offer";
+    eyebrowColor = "#047857";
+    preheader = programmeLabel
+      ? `${schoolName} has offered you admission to ${programmeLabel}.`
+      : `${schoolName} has offered you admission.`;
+    text = [
+      `Dear ${applicantName},`,
+      "",
+      programmeLabel
+        ? `We are delighted to inform you that ${schoolName} has reviewed your application and has offered you admission into ${programmeLabel}. Congratulations on this achievement — your hard work has paid off!`
+        : `We are delighted to inform you that ${schoolName} has reviewed your application and has offered you admission into their programme. Congratulations on this achievement — your hard work has paid off!`,
+      "",
+      "Admission Details",
+      `Application Number: ${applicationNumber}`,
+      `Institution: ${schoolName}`,
+      programmeLabel ? `Programme: ${programmeLabel}` : "",
+      `Decision: ${decisionLabel}`,
+      `Decision Date: ${dateStr}`,
+      reviewNotes ? `Note from the institution: ${reviewNotes}` : "",
+      "",
+      "Your Next Steps",
+      "1. Accept Your Offer — Log in to your TertiaryGuide dashboard (My Applications) and Accept or Decline the offer.",
+      `2. Complete Registration — After accepting, contact the admissions office at ${schoolName} to begin your formal enrolment process.`,
+      "3. Prepare for Campus Life — Visit our Resources section for guides on hostels, registration, and thriving in your first semester.",
+      "",
+      `View Admission Letter: ${trackUrl}`,
+      "",
+      "TertiaryGuide congratulates you on your admission. Please follow all instructions from the institution regarding enrolment deadlines, fees, and documentation to secure your place.",
+      ...officialFooterText(),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const admittedDetailRows = [
+      { label: "Application Number", value: applicationNumber },
+      { label: "Institution", value: schoolName },
+      ...(programmeLabel
+        ? [{ label: "Programme", value: programmeLabel }]
+        : []),
+      { label: "Decision", value: decisionLabel },
+      { label: "Decision Date", value: dateStr },
+    ];
+
+    bodyHtml = `
+      <p style="margin:0 0 16px;font-size:16px;">Dear <strong>${escapeHtml(applicantName)}</strong>,</p>
+      <p style="margin:0 0 18px;font-size:15px;line-height:1.65;color:#374151;">
+        We are delighted to inform you that <strong>${escapeHtml(schoolName)}</strong> has reviewed your application and has offered you admission${
+          programmeLabel
+            ? ` into <strong>${escapeHtml(programmeLabel)}</strong>`
+            : " into their programme"
+        }. Congratulations on this achievement — your hard work has paid off!
+      </p>
+      <p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;">Admission Details</p>
+      ${officialDetailTable(admittedDetailRows)}
+      ${
+        reviewNotes
+          ? `<p style="margin:0 0 18px;padding:12px 14px;background:#ECFDF5;border-radius:12px;font-size:13px;color:#065F46;"><strong>Note from the institution:</strong> ${escapeHtml(reviewNotes)}</p>`
+          : ""
+      }
+      ${officialStepsHtml("Your Next Steps", [
+        {
+          title: "Accept Your Offer",
+          body: "Log in to your TertiaryGuide dashboard (My Applications) and Accept or Decline the offer.",
+        },
+        {
+          title: "Complete Registration",
+          body: `After accepting, contact the admissions office at <strong>${escapeHtml(schoolName)}</strong> to begin your formal enrolment process.`,
+        },
+        {
+          title: "Prepare for Campus Life",
+          body: `Visit our <a href="${escapeHtml(resourcesUrl)}" style="color:#007AFF;text-decoration:none;">Resources</a> section for guides on hostels, registration, and thriving in your first semester.`,
+        },
+      ])}
+      ${officialCtaHtml(trackUrl, "View Admission Letter →", "#047857")}
+      <p style="margin:0;font-size:13px;line-height:1.6;color:#4B5563;">
+        TertiaryGuide congratulates you on your admission. Please follow all instructions from the institution regarding enrolment deadlines, fees, and documentation to secure your place.
+      </p>`;
+  } else if (variant === "approved") {
+    const programmeLabel = [programme, programmeMode]
+      .map((part) => (typeof part === "string" ? part.trim() : ""))
+      .filter(Boolean)
+      .join(" · ");
+    subject = `Application Approved — ${schoolName} | TertiaryGuide`;
+    eyebrow = "Application Approved";
+    eyebrowColor = "#047857";
+    preheader =
+      "After careful review, your application details look clean and correct.";
+    text = [
+      `Dear ${applicantName},`,
+      "",
+      `Good news. After a careful review of your details, ${schoolName} confirms that your application looks clean and correct and has been approved.`,
+      "",
+      "This is not your final admission offer yet. Subsequent information about the next steps in your application process will be shared with you soon. Please keep an eye on your TertiaryGuide dashboard and email for updates.",
+      "",
+      "Application Reference",
+      `Application Number: ${applicationNumber}`,
+      `Institution: ${schoolName}`,
+      programmeLabel ? `Programme: ${programmeLabel}` : "",
+      "Status: Approved",
+      `Updated: ${dateStr}`,
+      reviewNotes ? `Note from the institution: ${reviewNotes}` : "",
+      "",
+      `Track My Application: ${trackUrl}`,
+      "",
+      "Thank you for applying through TertiaryGuide. We will notify you as soon as further information is available.",
+      ...officialFooterText(),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const approvedDetailRows = [
+      { label: "Application Number", value: applicationNumber },
+      { label: "Institution", value: schoolName },
+      ...(programmeLabel
+        ? [{ label: "Programme", value: programmeLabel }]
+        : []),
+      { label: "Status", value: "Approved" },
+      { label: "Updated", value: dateStr },
+    ];
+
+    bodyHtml = `
+      <p style="margin:0 0 16px;font-size:16px;">Dear <strong>${escapeHtml(applicantName)}</strong>,</p>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#374151;">
+        Good news. After a careful review of your details, <strong>${escapeHtml(schoolName)}</strong> confirms that your application looks clean and correct and has been <strong>approved</strong>.
+      </p>
+      <p style="margin:0 0 18px;font-size:14px;line-height:1.65;color:#4B5563;">
+        This is not your final admission offer yet. Subsequent information about the next steps in your application process will be shared with you soon. Please keep an eye on your TertiaryGuide dashboard and email for updates.
+      </p>
+      <p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;">Application Reference</p>
+      ${officialDetailTable(approvedDetailRows)}
+      ${
+        reviewNotes
+          ? `<p style="margin:0 0 18px;padding:12px 14px;background:#ECFDF5;border-radius:12px;font-size:13px;color:#065F46;"><strong>Note from the institution:</strong> ${escapeHtml(reviewNotes)}</p>`
+          : ""
+      }
+      ${officialCtaHtml(trackUrl, "Track My Application →", "#047857")}
+      <p style="margin:0;font-size:13px;line-height:1.6;color:#4B5563;">
+        Thank you for applying through TertiaryGuide. We will notify you as soon as further information is available.
+      </p>`;
+  } else if (variant === "rejected") {
+    subject = `Update on Your Application — ${schoolName} | TertiaryGuide`;
+    eyebrow = "Application Update";
+    eyebrowColor = "#B45309";
+    preheader = `An update on your application to ${schoolName}.`;
+    text = [
+      `Dear ${applicantName},`,
+      "",
+      `Thank you for applying to ${schoolName} through TertiaryGuide. After careful review of your application, we regret to inform you that the institution is unable to offer you admission at this time.`,
+      "",
+      "This decision is not a reflection of your potential. Many qualified students apply each year and admissions are highly competitive. We encourage you to keep pursuing your academic goals.",
+      "",
+      "Application Reference",
     `Application Number: ${applicationNumber}`,
-    programme ? `Programme: ${programme}` : "",
-    reviewNotes ? `Note from the school: ${reviewNotes}` : "",
-    "",
-    `View your application: ${portalUrl}`,
-    isCare ? `Explore other programmes: ${exploreUrl}` : "",
-    "",
-    "With care,",
-    "The TertiaryGuide Team",
+      `Institution: ${schoolName}`,
+      "Decision: Not Admitted",
+      `Decision Date: ${dateStr}`,
+      reviewNotes ? `Note from the institution: ${reviewNotes}` : "",
+      "",
+      "What You Can Do Next",
+      "1. Explore Other Institutions — Browse other institutions and programmes on TertiaryGuide that match your qualifications and interests.",
+      "2. Compare Programmes — Use our Programme Search & Compare tool to find alternatives that suit your grades and career goals.",
+      "3. Check Scholarships — Visit our Scholarships section to discover funding opportunities that can support your next application.",
+      "",
+      `Explore Other Programmes: ${programmesUrl}`,
+      "",
+      "TertiaryGuide remains committed to helping you find the right path. Don't be discouraged — your journey is just beginning. Our team is here to support you every step of the way.",
+      ...officialFooterText(),
   ]
     .filter(Boolean)
     .join("\n");
 
+    bodyHtml = `
+      <p style="margin:0 0 16px;font-size:16px;">Dear <strong>${escapeHtml(applicantName)}</strong>,</p>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#374151;">
+        Thank you for applying to <strong>${escapeHtml(schoolName)}</strong> through TertiaryGuide. After careful review of your application, we regret to inform you that the institution is unable to offer you admission at this time.
+      </p>
+      <p style="margin:0 0 18px;font-size:14px;line-height:1.65;color:#4B5563;">
+        This decision is not a reflection of your potential. Many qualified students apply each year and admissions are highly competitive. We encourage you to keep pursuing your academic goals.
+      </p>
+      <p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;">Application Reference</p>
+      ${officialDetailTable([
+        { label: "Application Number", value: applicationNumber },
+        { label: "Institution", value: schoolName },
+        { label: "Decision", value: "Not Admitted" },
+        { label: "Decision Date", value: dateStr },
+      ])}
+              ${
+                reviewNotes
+          ? `<p style="margin:0 0 18px;padding:12px 14px;background:#FFFBEB;border-radius:12px;font-size:13px;color:#92400E;"><strong>Note from the institution:</strong> ${escapeHtml(reviewNotes)}</p>`
+          : ""
+      }
+      ${officialStepsHtml("What You Can Do Next", [
+        {
+          title: "Explore Other Institutions",
+          body: `Browse other institutions and programmes on <a href="${escapeHtml(exploreUrl)}" style="color:#007AFF;text-decoration:none;">TertiaryGuide</a> that match your qualifications and interests.`,
+        },
+        {
+          title: "Compare Programmes",
+          body: `Use our <a href="${escapeHtml(compareUrl)}" style="color:#007AFF;text-decoration:none;">Programme Search &amp; Compare</a> tool to find alternatives that suit your grades and career goals.`,
+        },
+        {
+          title: "Check Scholarships",
+          body: `Visit our <a href="${escapeHtml(exploreUrl)}" style="color:#007AFF;text-decoration:none;">Scholarships</a> section to discover funding opportunities that can support your next application.`,
+        },
+      ])}
+      ${officialCtaHtml(programmesUrl, "Explore Other Programmes →", "#B45309")}
+      <p style="margin:0;font-size:13px;line-height:1.6;color:#4B5563;">
+        TertiaryGuide remains committed to helping you find the right path. Don't be discouraged — your journey is just beginning. Our team is here to support you every step of the way.
+      </p>`;
+  } else {
+    const programmeLabel = [programme, programmeMode]
+      .map((part) => (typeof part === "string" ? part.trim() : ""))
+      .filter(Boolean)
+      .join(" — ");
+    subject = `Your Application is Under Further Review — ${schoolName} | TertiaryGuide`;
+    eyebrow = "Further Review";
+    eyebrowColor = "#0369A1";
+    preheader = `${schoolName} is conducting a further review of your application.`;
+    text = [
+      `Dear ${applicantName},`,
+      "",
+      `Thank you for your patience. We would like to update you that ${schoolName} is currently conducting a further review of your application. No final decision has been made yet.`,
+      "",
+      "You will receive another notification as soon as a final decision is reached. In the meantime, you may continue tracking your application through your TertiaryGuide dashboard.",
+      "",
+      "Application Reference",
+      `Application Number: ${applicationNumber}`,
+      `Institution: ${schoolName}`,
+      programmeLabel ? `Programme: ${programmeLabel}` : "",
+      "Status: Pending Further Review",
+      `Last Updated: ${dateStr}`,
+      reviewNotes ? `Note from the institution: ${reviewNotes}` : "",
+      "",
+      `Track My Application: ${trackUrl}`,
+      "",
+      `If you have not heard back within 14 days, we recommend contacting the admissions office at ${schoolName} directly or reaching out to our support team at ${OFFICIAL_SUPPORT.email} for assistance.`,
+      ...officialFooterText(),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const detailRows = [
+      { label: "Application Number", value: applicationNumber },
+      { label: "Institution", value: schoolName },
+      ...(programmeLabel
+        ? [{ label: "Programme", value: programmeLabel }]
+        : []),
+      { label: "Status", value: "Pending Further Review" },
+      { label: "Last Updated", value: dateStr },
+    ];
+
+    bodyHtml = `
+      <p style="margin:0 0 16px;font-size:16px;">Dear <strong>${escapeHtml(applicantName)}</strong>,</p>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#374151;">
+        Thank you for your patience. We would like to update you that <strong>${escapeHtml(schoolName)}</strong> is currently conducting a further review of your application. No final decision has been made yet.
+      </p>
+      <p style="margin:0 0 18px;font-size:14px;line-height:1.65;color:#4B5563;">
+        You will receive another notification as soon as a final decision is reached. In the meantime, you may continue tracking your application through your TertiaryGuide dashboard.
+      </p>
+      <p style="margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;">Application Reference</p>
+      ${officialDetailTable(detailRows)}
+      ${
+        reviewNotes
+          ? `<p style="margin:0 0 18px;padding:12px 14px;background:#EFF6FF;border-radius:12px;font-size:13px;color:#1E3A5F;"><strong>Note from the institution:</strong> ${escapeHtml(reviewNotes)}</p>`
+          : ""
+      }
+      ${officialCtaHtml(trackUrl, "Track My Application →", "#0369A1")}
+      <p style="margin:0;font-size:13px;line-height:1.6;color:#4B5563;">
+        If you have not heard back within 14 days, we recommend contacting the admissions office at <strong>${escapeHtml(schoolName)}</strong> directly or reaching out to our support team at
+        <a href="mailto:${OFFICIAL_SUPPORT.email}" style="color:#007AFF;text-decoration:none;">${OFFICIAL_SUPPORT.email}</a> for assistance.
+      </p>`;
+  }
+
   const result = await resend.emails.send({
     from: FROM_EMAIL,
     to,
-    subject: copy.emailSubject(schoolName),
+    subject,
     text,
-    html: `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${escapeHtml(copy.emailSubject(schoolName))}</title>
-</head>
-<body style="margin:0;padding:0;background-color:#F3F4F6;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F3F4F6;padding:32px 16px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background-color:#ffffff;border-radius:20px;overflow:hidden;border:1px solid #E5E7EB;">
-          <tr>
-            <td style="padding:28px 28px 8px 28px;">
-              <p style="margin:0 0 8px 0;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${accent};">${escapeHtml(copy.badge)}</p>
-              <h1 style="margin:0;font-family:system-ui,sans-serif;font-size:22px;line-height:1.3;color:#0F172A;">${escapeHtml(copy.title)}</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:16px 28px 8px 28px;font-family:system-ui,sans-serif;font-size:15px;line-height:1.65;color:#334155;">
-              <p style="margin:0 0 12px 0;">Hello ${escapeHtml(firstName)},</p>
-              <p style="margin:0 0 16px 0;">${escapeHtml(copy.message)}</p>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F8FAFC;border-radius:14px;">
-                <tr>
-                  <td style="padding:14px 16px;font-size:13px;color:#475569;">
-                    <p style="margin:0 0 6px 0;"><strong>School:</strong> ${escapeHtml(schoolName)}</p>
-                    <p style="margin:0 0 6px 0;"><strong>Application number:</strong> ${escapeHtml(applicationNumber)}</p>
-                    ${programme ? `<p style="margin:0;"><strong>Programme:</strong> ${escapeHtml(programme)}</p>` : ""}
-                  </td>
-                </tr>
-              </table>
-              ${
-                reviewNotes
-                  ? `<p style="margin:16px 0 0 0;padding:12px 14px;background:#FFFBEB;border-radius:12px;font-size:13px;"><strong>A note from the school:</strong> ${escapeHtml(reviewNotes)}</p>`
-                  : ""
-              }
-              <p style="margin:22px 0 0 0;">
-                <a href="${escapeHtml(portalUrl)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;border-radius:999px;padding:12px 18px;font-size:14px;font-weight:600;">View your application</a>
-              </p>
-              ${
-                isCare
-                  ? `<p style="margin:12px 0 0 0;"><a href="${escapeHtml(exploreUrl)}" style="color:#007AFF;font-size:14px;">Explore other programmes</a></p>`
-                  : ""
-              }
-              <p style="margin:24px 0 0 0;font-size:13px;color:#64748B;">With care,<br/>The TertiaryGuide Team</p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `,
+    html: officialEmailDocument({
+      subject,
+      preheader,
+      eyebrow,
+      eyebrowColor,
+      bodyHtml,
+    }),
   });
 
   if (result.error) {
