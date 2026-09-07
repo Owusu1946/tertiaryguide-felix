@@ -26,7 +26,10 @@ export function AdminEmailCampaignsSection() {
   const [subject, setSubject] = useState("");
   const [previewText, setPreviewText] = useState("");
   const [template, setTemplate] = useState("announcement");
-  const [target, setTarget] = useState<"all" | "form-buyers" | "single">("single");
+  const [target, setTarget] = useState<"all" | "form-buyers" | "single" | "school" | "approaching-deadlines">("single");
+  const [schoolKey, setSchoolKey] = useState("");
+  const [deadlineDays, setDeadlineDays] = useState("30");
+  const [schools, setSchools] = useState<Array<{ name: string; slug?: string | null; alias?: string | null }>>([]);
   const [singleEmail, setSingleEmail] = useState("");
   const [htmlContent, setHtmlContent] = useState(`<h2>Hello from TertiaryGuide!</h2>
 <p>We are excited to share some updates with you.</p>
@@ -111,6 +114,10 @@ export function AdminEmailCampaignsSection() {
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    void fetch("/api/admin/schools", { headers: adminHeaders() }).then((res) => res.ok ? res.json() : null).then((data) => setSchools(data?.schools || [])).catch(() => undefined);
+  }, []);
+
   const handleSendCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subject.trim()) {
@@ -123,6 +130,10 @@ export function AdminEmailCampaignsSection() {
     }
     if (target === "single" && !singleEmail.trim()) {
       alert("Please specify the recipient email address.");
+      return;
+    }
+    if (target === "school" && !schoolKey) {
+      alert("Please choose a school to feature.");
       return;
     }
 
@@ -143,6 +154,8 @@ export function AdminEmailCampaignsSection() {
           htmlContent,
           footer,
           target,
+          schoolKey: target === "school" ? schoolKey : undefined,
+          deadlineDays: target === "approaching-deadlines" ? Number(deadlineDays) : undefined,
           singleEmail: target === "single" ? singleEmail : undefined,
         }),
       });
@@ -178,6 +191,8 @@ export function AdminEmailCampaignsSection() {
   const getTargetBadgeLabel = (t: string, singleEmail?: string | null) => {
     if (t === "all") return "All Users";
     if (t === "form-buyers") return "Form Buyers";
+    if (t === "school") return "School Feature";
+    if (t === "approaching-deadlines") return "Approaching Deadlines";
     if (t === "single") return singleEmail ? `Single (${singleEmail})` : "Single Recipient";
     return t;
   };
@@ -303,12 +318,14 @@ export function AdminEmailCampaignsSection() {
               <select
                 id="campaign-target"
                 value={target}
-                onChange={(e) => setTarget(e.target.value as any)}
+                onChange={(e) => { const next = e.target.value as typeof target; setTarget(next); if (next === "approaching-deadlines" && !htmlContent.includes("{approaching-deadlines}")) setHtmlContent((current) => `${current}\n{approaching-deadlines}`); }}
                 className="w-full rounded-xl border border-[#D1D5DB] px-3 py-2 text-sm text-[#111827] focus:border-[#2563EB] focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
               >
                 <option value="single">Single Test Email Recipient</option>
                 <option value="all">All Registered Users</option>
                 <option value="form-buyers">Form Voucher Buyers</option>
+                <option value="school">One school (all users)</option>
+                <option value="approaching-deadlines">Approaching deadlines (all users)</option>
               </select>
             </div>
 
@@ -327,6 +344,13 @@ export function AdminEmailCampaignsSection() {
                   required={target === "single"}
                 />
               </div>
+            )}
+
+            {target === "school" && (
+              <div className="space-y-1.5"><label htmlFor="campaign-school" className="text-xs font-semibold text-[#374151]">School to feature</label><select id="campaign-school" value={schoolKey} onChange={(e) => { setSchoolKey(e.target.value); setHtmlContent((current) => `${current}\n<p>{schoolKey ? "" : ""}</p>`.replace("<p></p>", `{school:${e.target.value}}`)); }} className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm"><option value="">Choose a school</option>{schools.map((school) => <option key={school.slug || school.name} value={school.slug || school.name}>{school.alias || school.name}</option>)}</select><p className="text-[11px] text-[#6B7280]">The selected school card includes its logo, deadline, and admissions link.</p></div>
+            )}
+            {target === "approaching-deadlines" && (
+              <div className="space-y-1.5"><label htmlFor="deadline-days" className="text-xs font-semibold text-[#374151]">Include deadlines within</label><select id="deadline-days" value={deadlineDays} onChange={(e) => setDeadlineDays(e.target.value)} className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm"><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days</option></select><p className="text-[11px] text-[#6B7280]">Use the token <code>{"{approaching-deadlines}"}</code> in the message where the school cards should appear.</p></div>
             )}
 
             <div className="space-y-1.5">
