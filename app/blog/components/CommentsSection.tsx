@@ -164,6 +164,7 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
                         src={currentUserAvatar}
                         alt="You"
                         fill
+                        unoptimized
                         className="rounded-full border border-gray-100 object-cover"
                     />
                 </div>

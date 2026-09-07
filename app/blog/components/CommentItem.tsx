@@ -57,6 +57,7 @@ export function CommentItem({ comment, allComments, onReply, onLike, currentUser
                         src={comment.userAvatar || "/woman.png"}
                         alt={comment.userName}
                         fill
+                        unoptimized
                         className="rounded-full border border-gray-100 object-cover shadow-sm"
                     />
                 </div>
@@ -109,7 +110,7 @@ export function CommentItem({ comment, allComments, onReply, onLike, currentUser
                             <div className="flex -space-x-1">
                                 {replies.slice(0, 2).map((r, i) => (
                                     <div key={r._id} className="relative h-4 w-4 rounded-full border border-white overflow-hidden bg-gray-200">
-                                        <Image src={r.userAvatar || "/woman.png"} fill alt="" className="object-cover" />
+                                        <Image src={r.userAvatar || "/woman.png"} fill unoptimized alt="" className="object-cover" />
                                     </div>
                                 ))}
                             </div>
@@ -125,6 +126,7 @@ export function CommentItem({ comment, allComments, onReply, onLike, currentUser
                                     src={currentAvatar}
                                     alt="You"
                                     fill
+                                    unoptimized
                                     className="rounded-full object-cover shadow-sm border border-gray-100"
                                 />
                             </div>

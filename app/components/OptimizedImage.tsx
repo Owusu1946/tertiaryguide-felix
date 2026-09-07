@@ -11,9 +11,11 @@ import {
  * next/image loader — those functions cannot cross the RSC boundary).
  * Local / other remotes keep the default Next optimizer.
  */
-export function OptimizedImage({ alt, className, sizes, src, fill, priority, ...props }: ImageProps) {
+export function OptimizedImage({ alt, className, sizes, src, fill, priority, unoptimized, ...props }: ImageProps) {
   const srcStr = typeof src === "string" ? src : null;
   const useCloudinary = Boolean(srcStr && isCloudinaryImageUrl(srcStr));
+  const isSvgOrNavii = Boolean(srcStr && (srcStr.includes("api.navii.dev") || srcStr.endsWith(".svg") || srcStr.includes(".svg?")));
+  const shouldBeUnoptimized = Boolean(unoptimized || isSvgOrNavii);
 
   if (useCloudinary && srcStr) {
     const cover =
@@ -53,6 +55,7 @@ export function OptimizedImage({ alt, className, sizes, src, fill, priority, ...
       sizes={sizes}
       className={className}
       priority={priority}
+      unoptimized={shouldBeUnoptimized}
     />
   );
 }

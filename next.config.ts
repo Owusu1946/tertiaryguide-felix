@@ -2,6 +2,8 @@
 const nextConfig = {
   serverExternalPackages: ["xlsx", "pdf-parse", "pdfjs-dist"],
   images: {
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     formats: ["image/avif", "image/webp"],
     qualities: [75, 80, 100],
     deviceSizes: [640, 750, 828, 1080, 1200, 1600, 1920],
