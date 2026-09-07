@@ -105,6 +105,8 @@ export type CachedUser = {
   username: string;
   email: string;
   phone?: string;
+  profilePicture?: string | null;
+  avatarSeed?: string | null;
 };
 
 const USER_TTL_SECONDS = 15 * 60; // 15 minutes

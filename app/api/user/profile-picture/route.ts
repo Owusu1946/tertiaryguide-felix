@@ -1,21 +1,21 @@
 
 import { NextResponse } from "next/server";
 import { getDb } from "../../../../lib/mongodb";
+import { cacheUser } from "../../../../lib/redis";
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { email, image } = body;
+        const { email, image, avatarSeed } = body;
 
-        if (!email || !image) {
+        if (!email || (!image && !avatarSeed)) {
             return NextResponse.json(
-                { error: "Email and image are required" },
+                { error: "Email and an image or avatar seed are required" },
                 { status: 400 },
             );
         }
 
-        // Basic validation of base64 image
-        if (!image.startsWith("data:image")) {
+        if (image && (typeof image !== "string" || !image.startsWith("data:image") || image.length > 2_800_000)) {
             return NextResponse.json(
                 { error: "Invalid image format" },
                 { status: 400 },
@@ -23,16 +23,21 @@ export async function POST(req: Request) {
         }
 
         const db = await getDb();
-        const result = await db.collection("users").updateOne(
-            { email },
-            { $set: { profilePicture: image } }
-        );
+        const normalizedEmail = String(email).trim().toLowerCase();
+        const useGenerated = typeof avatarSeed === "string" && avatarSeed.trim();
+        const update = useGenerated
+            ? { $set: { avatarSeed: avatarSeed.trim().slice(0, 128), profilePicture: null } }
+            : { $set: { profilePicture: image } };
+        const users = db.collection("users");
+        const result = await users.updateOne({ email: normalizedEmail }, update);
 
         if (result.matchedCount === 0) {
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
-        return NextResponse.json({ success: true });
+        const user = await users.findOne({ email: normalizedEmail }, { projection: { username: 1, email: 1, phone: 1, profilePicture: 1, avatarSeed: 1 } });
+        if (user?.email) await cacheUser({ id: String(user._id), username: user.username || "", email: user.email, phone: user.phone, profilePicture: user.profilePicture ?? null, avatarSeed: user.avatarSeed ?? null });
+        return NextResponse.json({ success: true, profilePicture: user?.profilePicture ?? null, avatarSeed: user?.avatarSeed ?? null });
     } catch (error) {
         console.error("Error updating profile picture:", error);
         return NextResponse.json(

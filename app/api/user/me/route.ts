@@ -25,9 +25,9 @@ export async function GET(req: NextRequest) {
     const db = await getDb();
     const users = db.collection("users");
 
-    const doc = await users.findOne<{ _id: unknown; username?: string; email?: string; phone?: string }>(
+    const doc = await users.findOne<{ _id: unknown; username?: string; email?: string; phone?: string; profilePicture?: string | null; avatarSeed?: string | null }>(
       { email: email.toLowerCase() },
-      { projection: { username: 1, email: 1, phone: 1 } },
+      { projection: { username: 1, email: 1, phone: 1, profilePicture: 1, avatarSeed: 1 } },
     );
 
     if (!doc || !doc.email) {
@@ -39,6 +39,8 @@ export async function GET(req: NextRequest) {
       username: doc.username || "",
       email: doc.email,
       phone: doc.phone,
+      profilePicture: doc.profilePicture ?? null,
+      avatarSeed: doc.avatarSeed ?? null,
     };
 
     await cacheUser(user);

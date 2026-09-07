@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
       phone?: string;
       passwordHash?: string;
       role?: string;
+      profilePicture?: string | null;
+      avatarSeed?: string | null;
     }>({ username });
 
     if (!userDoc || !userDoc.passwordHash) {
@@ -92,6 +94,8 @@ export async function POST(req: NextRequest) {
       email: userDoc.email,
       username: userDoc.username || "",
       phone: userDoc.phone,
+      profilePicture: userDoc.profilePicture ?? null,
+      avatarSeed: userDoc.avatarSeed ?? null,
     };
 
     await cacheUser(cachedUser);

@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
-import { UserInitialsAvatar } from "@/app/components/UserInitialsAvatar";
+import { UserAvatar } from "@/app/components/UserAvatar";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowRight,
@@ -140,6 +140,9 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
   const [lastChecker, setLastChecker] = useState<LastCheckerStored | null>(null);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [userId, setUserId] = useState("");
+  const [avatarSeed, setAvatarSeed] = useState("");
+  const [profilePicture, setProfilePicture] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -182,6 +185,22 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
       const storedEmail = window.localStorage.getItem("tg_user_email");
       if (storedName) setUserName(storedName);
       if (storedEmail) setUserEmail(storedEmail);
+      setUserId(window.localStorage.getItem("tg_user_id") || "");
+      setAvatarSeed(window.localStorage.getItem("tg_user_avatar_seed") || "");
+      setProfilePicture(window.localStorage.getItem("tg_user_avatar") || "");
+      if (storedEmail && !window.localStorage.getItem("tg_user_id")) {
+        void fetch(`/api/user/me?email=${encodeURIComponent(storedEmail)}`).then((res) => res.ok ? res.json() : null).then((data) => {
+          if (!data?.user?.id) return;
+          const id = data.user.id;
+          const seed = data.user.avatarSeed || "";
+          const photo = data.user.profilePicture || "";
+          const avatar = photo || `https://api.navii.dev/avatar/${encodeURIComponent(seed || id)}?size=96&tileBg=auto`;
+          window.localStorage.setItem("tg_user_id", id);
+          window.localStorage.setItem("tg_user_avatar_seed", seed);
+          window.localStorage.setItem("tg_user_avatar", avatar);
+          setUserId(id); setAvatarSeed(seed); setProfilePicture(avatar);
+        }).catch(() => undefined);
+      }
       setIsLoaded(true);
     };
     updateProfile();
@@ -1249,7 +1268,7 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
             {!isLoaded && !userName && !userEmail ? (
               <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200" />
             ) : (
-              <UserInitialsAvatar name={userName || userEmail} size="md" />
+              <UserAvatar userId={userId} avatarSeed={avatarSeed} name={userName || userEmail} photoUrl={profilePicture} size="md" />
             )}
           </Link>
         </div>
@@ -1414,6 +1433,8 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
                       onClick={() => {
                         localStorage.removeItem("tg_user_email");
                         localStorage.removeItem("tg_user_avatar");
+                        localStorage.removeItem("tg_user_id");
+                        localStorage.removeItem("tg_user_avatar_seed");
                         setIsAuthed(false);
                         setMobileMenuOpen(false);
                       }}

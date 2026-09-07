@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
-import { UserInitialsAvatar } from "../components/UserInitialsAvatar";
+import { UserAvatar } from "../components/UserAvatar";
 
 export default function DashboardLayout({
   children,
@@ -16,6 +16,9 @@ export default function DashboardLayout({
   const router = useRouter();
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [userName, setUserName] = useState("");
+  const [userId, setUserId] = useState("");
+  const [avatarSeed, setAvatarSeed] = useState("");
+  const [profilePicture, setProfilePicture] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
 
   React.useEffect(() => {
@@ -36,6 +39,9 @@ export default function DashboardLayout({
     if (typeof window !== "undefined") {
       const cached = window.localStorage.getItem("tg_user_name");
       if (cached) setUserName(cached);
+      setUserId(window.localStorage.getItem("tg_user_id") || "");
+      setAvatarSeed(window.localStorage.getItem("tg_user_avatar_seed") || "");
+      setProfilePicture(window.localStorage.getItem("tg_user_avatar") || "");
 
       if (cached) setIsLoaded(true);
     }
@@ -44,6 +50,9 @@ export default function DashboardLayout({
       if (typeof window !== "undefined") {
         const cachedName = window.localStorage.getItem("tg_user_name");
         if (cachedName) setUserName(cachedName);
+        setUserId(window.localStorage.getItem("tg_user_id") || "");
+        setAvatarSeed(window.localStorage.getItem("tg_user_avatar_seed") || "");
+        setProfilePicture(window.localStorage.getItem("tg_user_avatar") || "");
       }
     };
 
@@ -74,6 +83,13 @@ export default function DashboardLayout({
             setUserName(nameToDisplay);
             window.localStorage.setItem("tg_user_name", nameToDisplay);
           }
+          const id = data.user.id || "";
+          const seed = data.user.avatarSeed || "";
+          const photo = data.user.profilePicture || "";
+          setUserId(id); setAvatarSeed(seed); setProfilePicture(photo);
+          window.localStorage.setItem("tg_user_id", id);
+          window.localStorage.setItem("tg_user_avatar_seed", seed);
+          window.localStorage.setItem("tg_user_avatar", photo || (id ? `https://api.navii.dev/avatar/${encodeURIComponent(seed || id)}?size=96&tileBg=auto` : ""));
           setIsLoaded(true);
         }
       } catch (error) {
@@ -124,7 +140,7 @@ export default function DashboardLayout({
             {!isLoaded && !userName ? (
               <div className="h-12 w-12 shrink-0 animate-pulse rounded-full bg-gray-200 sm:h-14 sm:w-14" />
             ) : (
-              <UserInitialsAvatar name={userName} size="lg" className="ring-white" />
+              <UserAvatar userId={userId} avatarSeed={avatarSeed} name={userName} photoUrl={profilePicture} size="lg" className="ring-white" />
             )}
             {!isLoaded && !userName ? (
               <div className="h-6 w-32 animate-pulse rounded bg-gray-200" />
@@ -237,6 +253,9 @@ export default function DashboardLayout({
                   try {
                     if (typeof window !== "undefined") {
                       window.localStorage.removeItem("tg_user_email");
+                      window.localStorage.removeItem("tg_user_avatar");
+                      window.localStorage.removeItem("tg_user_id");
+                      window.localStorage.removeItem("tg_user_avatar_seed");
                     }
                   } catch {
                     // ignore storage errors on logout

@@ -61,6 +61,11 @@ function SignInContent() {
       try {
         if (typeof window !== "undefined") {
           window.localStorage.setItem("tg_user_email", data.user.email);
+          window.localStorage.setItem("tg_user_name", data.user.username || "");
+          window.localStorage.setItem("tg_user_id", data.user.id || "");
+          window.localStorage.setItem("tg_user_avatar_seed", data.user.avatarSeed || "");
+          const avatar = data.user.profilePicture || (data.user.id ? `https://api.navii.dev/avatar/${encodeURIComponent(data.user.avatarSeed || data.user.id)}?size=96&tileBg=auto` : "");
+          window.localStorage.setItem("tg_user_avatar", avatar);
         }
       } catch {
         // ignore storage errors
