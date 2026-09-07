@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ensureExploreIndexes, explorePostsCollection } from "@/lib/explore/db";
 import { serializeExplorePost } from "@/lib/explore/types";
+import { getCachedExplorePosts, setCachedExplorePosts } from "@/lib/redis";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,6 +13,21 @@ export async function GET(req: NextRequest) {
     );
     const cursor = searchParams.get("cursor");
     const viewerEmail = (searchParams.get("email") || "").trim().toLowerCase();
+
+    const cacheKey = !cursor ? `first:${limit}` : null;
+    if (cacheKey) {
+      const cached = await getCachedExplorePosts(cacheKey);
+      if (cached) {
+        return NextResponse.json({
+          ok: true,
+          posts: cached.posts.map((post) => ({
+            ...post,
+            likedByMe: viewerEmail && Array.isArray(post.likes) ? post.likes.includes(viewerEmail) : false,
+          })),
+          nextCursor: cached.nextCursor,
+        });
+      }
+    }
 
     const db = await getDb();
     await ensureExploreIndexes(db);
@@ -38,9 +54,21 @@ export async function GET(req: NextRequest) {
           null
         : null;
 
+    const rawPosts = docs.map((doc) => ({
+      ...serializeExplorePost(doc, null),
+      likes: Array.isArray(doc.likes) ? doc.likes : [],
+    }));
+
+    if (cacheKey) {
+      void setCachedExplorePosts(cacheKey, { posts: rawPosts, nextCursor });
+    }
+
     return NextResponse.json({
       ok: true,
-      posts: docs.map((doc) => serializeExplorePost(doc, viewerEmail || null)),
+      posts: rawPosts.map((post) => ({
+        ...post,
+        likedByMe: viewerEmail ? post.likes.includes(viewerEmail) : false,
+      })),
       nextCursor,
     });
   } catch (error) {

@@ -6,6 +6,12 @@ import {
   exploreCommentsCollection,
   explorePostsCollection,
 } from "@/lib/explore/db";
+import {
+  getCachedExploreComments,
+  setCachedExploreComments,
+  invalidateExploreCommentsCache,
+  invalidateExplorePostsCache,
+} from "@/lib/redis";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -14,6 +20,14 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     const { id } = await ctx.params;
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid post id" }, { status: 400 });
+    }
+
+    const cachedComments = await getCachedExploreComments(id);
+    if (cachedComments) {
+      return NextResponse.json({
+        ok: true,
+        comments: cachedComments,
+      });
     }
 
     const db = await getDb();
@@ -41,19 +55,23 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       }
     }
 
+    const formattedComments = comments.map((c) => ({
+      id: String(c._id),
+      postId: String(c.postId),
+      parentId: c.parentId ? String(c.parentId) : null,
+      userEmail: c.userEmail,
+      userName: c.userName,
+      userAvatar: (c.userEmail && userAvatarMap.get(c.userEmail.toLowerCase())) || c.userAvatar || "/hero/avatar.png",
+      text: c.text,
+      likes: Array.isArray(c.likes) ? c.likes : [],
+      createdAt: c.createdAt.toISOString(),
+    }));
+
+    void setCachedExploreComments(id, formattedComments);
+
     return NextResponse.json({
       ok: true,
-      comments: comments.map((c) => ({
-        id: String(c._id),
-        postId: String(c.postId),
-        parentId: c.parentId ? String(c.parentId) : null,
-        userEmail: c.userEmail,
-        userName: c.userName,
-        userAvatar: (c.userEmail && userAvatarMap.get(c.userEmail.toLowerCase())) || c.userAvatar || "/hero/avatar.png",
-        text: c.text,
-        likes: Array.isArray(c.likes) ? c.likes : [],
-        createdAt: c.createdAt.toISOString(),
-      })),
+      comments: formattedComments,
     });
   } catch (error) {
     console.error("[explore/posts/:id/comments] GET error", error);
@@ -135,6 +153,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       { $inc: { commentCount: 1 }, $set: { updatedAt: now } },
     );
 
+    // Invalidate Redis caches for this post's comments and posts list
+    void invalidateExploreCommentsCache(id);
+    void invalidateExplorePostsCache();
+
     return NextResponse.json({
       ok: true,
       comment: {
@@ -173,6 +195,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     const liked = !(current.likes || []).includes(email);
     if (liked) await comments.updateOne(filter, { $addToSet: { likes: email } });
     else await comments.updateOne(filter, { $pull: { likes: email } });
+
+    void invalidateExploreCommentsCache(id);
+
     return NextResponse.json({ ok: true, liked, likeCount: Math.max(0, (current.likes || []).length + (liked ? 1 : -1)) });
   } catch (error) {
     console.error("[explore/posts/:id/comments] PATCH error", error);

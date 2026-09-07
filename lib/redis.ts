@@ -472,3 +472,63 @@ export async function invalidateAssistanceCache(): Promise<void> {
     await redis!.del("admin:assistance:list");
   });
 }
+
+const EXPLORE_POSTS_TTL_SECONDS = 3 * 60; // 3 minutes
+const EXPLORE_COMMENTS_TTL_SECONDS = 3 * 60; // 3 minutes
+
+export async function getCachedExplorePosts(
+  key: string,
+): Promise<{ posts: any[]; nextCursor: string | null } | null> {
+  return withRedisRead("getCachedExplorePosts", async () => {
+    const value = await redis!.get<{ posts: any[]; nextCursor: string | null }>(
+      `explore:posts:${key}`,
+    );
+    return value ?? null;
+  });
+}
+
+export async function setCachedExplorePosts(
+  key: string,
+  data: { posts: any[]; nextCursor: string | null },
+): Promise<void> {
+  await withRedisWrite("setCachedExplorePosts", async () => {
+    await redis!.set(`explore:posts:${key}`, data, {
+      ex: EXPLORE_POSTS_TTL_SECONDS,
+    });
+  });
+}
+
+export async function invalidateExplorePostsCache(): Promise<void> {
+  await withRedisWrite("invalidateExplorePostsCache", async () => {
+    await redis!.del("explore:posts:first:20");
+    await redis!.del("explore:posts:first:12");
+  });
+}
+
+export async function getCachedExploreComments(
+  postId: string,
+): Promise<any[] | null> {
+  return withRedisRead("getCachedExploreComments", async () => {
+    const value = await redis!.get<any[]>(`explore:comments:${postId}`);
+    return value ?? null;
+  });
+}
+
+export async function setCachedExploreComments(
+  postId: string,
+  comments: any[],
+): Promise<void> {
+  await withRedisWrite("setCachedExploreComments", async () => {
+    await redis!.set(`explore:comments:${postId}`, comments, {
+      ex: EXPLORE_COMMENTS_TTL_SECONDS,
+    });
+  });
+}
+
+export async function invalidateExploreCommentsCache(
+  postId: string,
+): Promise<void> {
+  await withRedisWrite("invalidateExploreCommentsCache", async () => {
+    await redis!.del(`explore:comments:${postId}`);
+  });
+}
