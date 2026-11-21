@@ -3,6 +3,7 @@ export const SCHOOL_CATEGORIES = [
   "Private",
   "Training College",
   "TVET",
+  "Nursing",
 ] as const;
 
 export type SchoolCategory = (typeof SCHOOL_CATEGORIES)[number];

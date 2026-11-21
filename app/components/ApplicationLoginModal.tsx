@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { GraduationCap, Loader2, X } from "lucide-react";
 import { writeApplySession } from "@/lib/admissions/applicant-session";
 import { partnerSchoolBuyFormsHref } from "@/lib/school-links";
+import { isDeadlineCalendarExpired } from "@/lib/deadlines";
 
 export type ApplicationLoginSchool = {
   id: string;
@@ -15,6 +16,7 @@ export type ApplicationLoginSchool = {
   slug: string | null;
   logoSrc: string | null;
   logoAlt?: string | null;
+  deadline?: string | null;
 };
 
 function schoolLabel(school: ApplicationLoginSchool) {
@@ -105,6 +107,7 @@ export function ApplicationLoginModal({
   if (!mounted) return null;
 
   const buyHref = partnerSchoolBuyFormsHref(school);
+  const deadlineExpired = isDeadlineCalendarExpired(school.deadline ?? null);
 
   return createPortal(
     <div
@@ -204,14 +207,23 @@ export function ApplicationLoginModal({
         </form>
 
         <div className="border-t border-[#F1F5F9] px-5 py-4 text-center sm:px-6">
-          <p className="text-sm text-[#6B7280]">Don’t have a form yet?</p>
-          <button
-            type="button"
-            onClick={() => router.push(buyHref)}
-            className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#007AFF] bg-white px-5 py-2.5 text-sm font-semibold text-[#007AFF] hover:bg-[#F0F7FF]"
-          >
-            Buy new forms
-          </button>
+          {deadlineExpired ? (
+            <p className="text-sm leading-relaxed text-red-600">
+              This school&apos;s application deadline has passed. New form
+              purchases are not available.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-[#6B7280]">Don’t have a form yet?</p>
+              <button
+                type="button"
+                onClick={() => router.push(buyHref)}
+                className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#007AFF] bg-white px-5 py-2.5 text-sm font-semibold text-[#007AFF] hover:bg-[#F0F7FF]"
+              >
+                Buy new forms
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>,

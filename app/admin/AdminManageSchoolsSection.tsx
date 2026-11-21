@@ -829,8 +829,9 @@ export function AdminManageSchoolsSection({ onBack }: AdminManageSchoolsSectionP
                 ))}
               </div>
               <p className="text-[10px] text-[#6B7280]">
-                A school can appear under more than one filter (e.g. Public and
-                Private). At least one category is required.
+                Controls All Forms tabs (Public, Private, Training College,
+                TVET, Nursing). A school can belong to more than one. At least
+                one category is required.
               </p>
             </div>
             <div className="flex items-center gap-2">

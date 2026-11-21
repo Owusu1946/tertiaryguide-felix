@@ -21,13 +21,13 @@ export async function generateMetadata({
   const { tab } = await searchParams;
   if (tab === "explore") {
     return {
-      title: "Explore flyers, deadlines and school news",
+      title: "Explore scholarships, deadlines and school news",
       description:
-        "Browse school flyers, admission updates, and deadline reminders from TertiaryGuide.",
+        "Browse scholarships, admission updates, and deadline reminders from TertiaryGuide.",
       alternates: { canonical: "/explore" },
       openGraph: {
         url: "/explore",
-        title: "Explore flyers, deadlines and school news | TertiaryGuide",
+        title: "Explore scholarships, deadlines and school news | TertiaryGuide",
       },
     };
   }

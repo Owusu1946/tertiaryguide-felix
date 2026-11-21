@@ -104,12 +104,10 @@ export function PartnerSchoolsSection({
               const expired = isDeadlineCalendarExpired(school.deadline);
               const price =
                 school.undergraduateVoucherPrice ?? school.voucherPrice ?? null;
-              return (
-                <Link
-                  key={school.id}
-                  href={schoolHref(school)}
-                  className="group flex flex-col overflow-hidden rounded-2xl border border-[#E8EEF5] bg-white p-3 shadow-sm transition hover:border-[#BFDBFE] hover:shadow-md sm:p-4"
-                >
+              const cardClass =
+                "group flex flex-col overflow-hidden rounded-2xl border border-[#E8EEF5] bg-white p-3 shadow-sm sm:p-4";
+              const body = (
+                <>
                   <div className="flex items-start gap-2.5">
                     <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-[#F8FAFC] ring-1 ring-[#EEF2F7] sm:h-12 sm:w-12">
                       {school.logoSrc ? (
@@ -141,11 +139,38 @@ export function PartnerSchoolsSection({
                       expired ? "text-red-600" : "text-[#6B7280]"
                     }`}
                   >
-                    {expired ? "Deadline passed" : formatDeadline(school.deadline)}
+                    {expired
+                      ? "Applications closed"
+                      : formatDeadline(school.deadline)}
                   </p>
-                  <p className="mt-auto pt-2 text-xs font-semibold text-[#007AFF]">
-                    {formatPrice(price)}
+                  <p
+                    className={`mt-auto pt-2 text-xs font-semibold ${
+                      expired ? "text-[#9CA3AF]" : "text-[#007AFF]"
+                    }`}
+                  >
+                    {expired ? "Not available" : formatPrice(price)}
                   </p>
+                </>
+              );
+              if (expired) {
+                return (
+                  <div
+                    key={school.id}
+                    className={`${cardClass} opacity-80`}
+                    aria-disabled="true"
+                    title="This school's application deadline has passed"
+                  >
+                    {body}
+                  </div>
+                );
+              }
+              return (
+                <Link
+                  key={school.id}
+                  href={schoolHref(school)}
+                  className={`${cardClass} transition hover:border-[#BFDBFE] hover:shadow-md`}
+                >
+                  {body}
                 </Link>
               );
             })}
@@ -204,14 +229,12 @@ export function PartnerSchoolsSection({
                 school.undergraduateVoucherPrice ??
                 school.voucherPrice ??
                 null;
+              const rowClass = `group grid min-h-0 min-w-0 ${gridCols} items-center gap-x-2 border-b border-[#E5E7EB] bg-white px-0 py-3 text-inherit no-underline sm:gap-x-4 sm:py-3.5`;
+              const interactiveClass =
+                "transition-all duration-150 [touch-action:manipulation] hover:rounded-2xl hover:bg-[#007AFF] hover:px-2.5 hover:text-white active:rounded-2xl active:bg-[#007AFF] active:px-2.5 active:text-white sm:hover:px-3.5 sm:active:px-3.5";
 
-              return (
-                <Link
-                  key={school.id}
-                  href={schoolHref(school)}
-                  aria-label={`${school.alias?.trim() || school.name} — ${formatPrice(price)} — deadline ${formatDeadline(school.deadline)}`}
-                  className={`group grid min-h-0 min-w-0 ${gridCols} items-center gap-x-2 border-b border-[#E5E7EB] bg-white px-0 py-3 text-inherit no-underline transition-all duration-150 [touch-action:manipulation] hover:rounded-2xl hover:bg-[#007AFF] hover:px-2.5 hover:text-white active:rounded-2xl active:bg-[#007AFF] active:px-2.5 active:text-white sm:gap-x-4 sm:py-3.5 sm:hover:px-3.5 sm:active:px-3.5`}
-                >
+              const rowBody = (
+                <>
                   <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
                     <div className="relative h-5 w-5 shrink-0 overflow-hidden rounded-sm transition group-hover:bg-white/95 group-hover:shadow-sm sm:h-7 sm:w-7 sm:group-hover:p-0.5">
                       {school.logoSrc ? (
@@ -248,21 +271,45 @@ export function PartnerSchoolsSection({
                   <span
                     className={`w-full text-right text-[11px] font-medium tabular-nums leading-none sm:text-sm ${
                       expired
-                        ? "text-red-600 group-hover:text-white"
+                        ? "text-red-600"
                         : "text-[#252525] group-hover:text-white"
                     }`}
                   >
                     {expired ? (
                       <>
-                        <span className="sm:hidden">Expired</span>
+                        <span className="sm:hidden">Closed</span>
                         <span className="hidden sm:inline">
-                          {formatDeadline(school.deadline)}
+                          Applications closed
                         </span>
                       </>
                     ) : (
                       formatDeadline(school.deadline)
                     )}
                   </span>
+                </>
+              );
+
+              if (expired) {
+                return (
+                  <div
+                    key={school.id}
+                    className={`${rowClass} cursor-not-allowed opacity-80`}
+                    aria-disabled="true"
+                    title="This school's application deadline has passed"
+                  >
+                    {rowBody}
+                  </div>
+                );
+              }
+
+              return (
+                <Link
+                  key={school.id}
+                  href={schoolHref(school)}
+                  aria-label={`${school.alias?.trim() || school.name} — ${formatPrice(price)} — deadline ${formatDeadline(school.deadline)}`}
+                  className={`${rowClass} ${interactiveClass}`}
+                >
+                  {rowBody}
                 </Link>
               );
             })}

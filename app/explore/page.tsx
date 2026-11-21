@@ -5,9 +5,9 @@ import { ExploreFeed } from "@/app/components/ExploreFeed";
 import { ExploreDesktopShell } from "@/app/components/ExploreSideNav";
 import { getSiteUrl } from "@/lib/site-url";
 
-const title = "Explore flyers, deadlines and school news";
+const title = "Explore scholarships, deadlines and school news";
 const description =
-  "Browse school flyers, admission updates, and deadline reminders from TertiaryGuide. Optimized for fast loading on mobile.";
+  "Browse scholarships, admission updates, and deadline reminders from TertiaryGuide. Optimized for fast loading on mobile.";
 
 export const metadata: Metadata = {
   title,

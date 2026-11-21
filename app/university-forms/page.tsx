@@ -12,7 +12,14 @@ import {
   isDeadlineCalendarExpired,
 } from "@/lib/deadlines";
 import { SchoolListLabel } from "@/app/components/SchoolListLabel";
+import {
+  ProgrammeLevelFilter,
+  priceForProgrammeLevel,
+  schoolMatchesProgrammeLevel,
+  type ProgrammeLevelFilterValue,
+} from "@/app/components/ProgrammeLevelFilter";
 import { catalogSchoolHref } from "@/lib/school-links";
+import { SCHOOL_CATEGORIES } from "@/lib/schoolCategories";
 
 type UniversityFormSchool = {
   id: string;
@@ -22,6 +29,8 @@ type UniversityFormSchool = {
   logoSrc: string | null;
   logoAlt: string | null;
   priceGhs: number | null;
+  undergraduateVoucherPrice?: number | null;
+  postgraduateVoucherPrice?: number | null;
   deadline: string | null;
   isVerified?: boolean;
   isPartner?: boolean;
@@ -51,6 +60,8 @@ const requestLabelClass =
 export default function UniversityFormsPage() {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("All");
+  const [programmeLevel, setProgrammeLevel] =
+    useState<ProgrammeLevelFilterValue>("all");
   const [schools, setSchools] = useState<UniversityFormSchool[]>([]);
   const [loading, setLoading] = useState(true);
   const [, setError] = useState<string | null>(null);
@@ -86,8 +97,9 @@ export default function UniversityFormsPage() {
 
   const normalizedQuery = query.trim().toLowerCase();
   const filteredSchools = schools.filter((school) => {
-    const matchesSearch = !normalizedQuery || 
-      school.name.toLowerCase().includes(normalizedQuery) || 
+    const matchesSearch =
+      !normalizedQuery ||
+      school.name.toLowerCase().includes(normalizedQuery) ||
       (school.alias ?? "").toLowerCase().includes(normalizedQuery);
     const schoolCats =
       school.categories && school.categories.length > 0
@@ -96,10 +108,9 @@ export default function UniversityFormsPage() {
           ? [school.category]
           : [];
     const matchesCategory =
-      activeTab === "All" ||
-      schoolCats.includes(activeTab) ||
-      Boolean(school.isPartner);
-    return matchesSearch && matchesCategory;
+      activeTab === "All" || schoolCats.includes(activeTab);
+    const matchesLevel = schoolMatchesProgrammeLevel(school, programmeLevel);
+    return matchesSearch && matchesCategory && matchesLevel;
   });
 
   const listedSchools = [...filteredSchools].sort((a, b) => {
@@ -178,27 +189,33 @@ export default function UniversityFormsPage() {
           </section>
 
           <section className="space-y-4 sm:space-y-6">
-            <div
-              className="flex w-full gap-2 overflow-x-auto overscroll-x-contain scroll-pb-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-wrap sm:gap-6 sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden"
-              role="tablist"
-              aria-label="Filter by category"
-            >
-              {["All", "Public", "Private", "Training College", "TVET"].map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`shrink-0 rounded-full px-3 py-2 text-xs font-medium transition [touch-action:manipulation] active:scale-[0.98] sm:rounded-none sm:px-0 sm:py-0 sm:pb-1 sm:text-sm ${
-                    activeTab === tab
-                      ? "bg-[#007AFF] text-white shadow-sm hover:bg-[#0066D6] hover:text-white sm:border-b-2 sm:border-[#007AFF] sm:bg-transparent sm:pb-1 sm:pt-0 sm:text-[#007AFF] sm:shadow-none sm:hover:bg-transparent sm:hover:text-[#007AFF]"
-                      : "bg-gray-100/80 text-[#555555] hover:text-[#007AFF] sm:bg-transparent"
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
+            <div className="space-y-3">
+              <div
+                className="flex w-full gap-2 overflow-x-auto overscroll-x-contain scroll-pb-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-wrap sm:gap-6 sm:overflow-visible sm:pb-0 [&::-webkit-scrollbar]:hidden"
+                role="tablist"
+                aria-label="Filter by category"
+              >
+                {["All", ...SCHOOL_CATEGORIES].map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`shrink-0 rounded-full px-3 py-2 text-xs font-medium transition [touch-action:manipulation] active:scale-[0.98] sm:rounded-none sm:px-0 sm:py-0 sm:pb-1 sm:text-sm ${
+                      activeTab === tab
+                        ? "bg-[#007AFF] text-white shadow-sm hover:bg-[#0066D6] hover:text-white sm:border-b-2 sm:border-[#007AFF] sm:bg-transparent sm:pb-1 sm:pt-0 sm:text-[#007AFF] sm:shadow-none sm:hover:bg-transparent sm:hover:text-[#007AFF]"
+                        : "bg-gray-100/80 text-[#555555] hover:text-[#007AFF] sm:bg-transparent"
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+              <ProgrammeLevelFilter
+                value={programmeLevel}
+                onChange={setProgrammeLevel}
+              />
             </div>
 
             <div className="w-full min-w-0">
@@ -223,11 +240,15 @@ export default function UniversityFormsPage() {
                 ) : (
                   listedSchools.map((form) => {
                     const expired = isDeadlineCalendarExpired(form.deadline);
+                    const displayPrice = priceForProgrammeLevel(
+                      form,
+                      programmeLevel,
+                    );
 
                     return (
                       <Link
                         key={form.id}
-                        href={catalogSchoolHref(form)}
+                        href={catalogSchoolHref(form, programmeLevel)}
                         className={`group grid min-h-0 min-w-0 ${formsGridCols} items-center gap-x-2 border-b border-[#E5E7EB] bg-white px-0 py-3 text-inherit no-underline transition-all duration-150 [touch-action:manipulation] hover:rounded-2xl hover:bg-[#007AFF] hover:px-2.5 hover:text-white active:rounded-2xl active:bg-[#007AFF] active:px-2.5 active:text-white sm:gap-x-4 sm:py-3.5 sm:hover:px-3.5 sm:active:px-3.5`}
                       >
                         <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
@@ -259,8 +280,8 @@ export default function UniversityFormsPage() {
                         </div>
 
                         <span className="w-full text-right text-[11px] font-medium tabular-nums leading-none text-[#252525] group-hover:text-white sm:text-sm">
-                          {form.priceGhs !== null
-                            ? `GHS ${form.priceGhs.toFixed(2)}`
+                          {displayPrice !== null
+                            ? `GHS ${displayPrice.toFixed(2)}`
                             : "—"}
                         </span>
 

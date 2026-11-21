@@ -1,10 +1,17 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Download, GraduationCap, Loader2, Pencil } from "lucide-react";
+import {
+  ChevronDown,
+  Download,
+  FileText,
+  GraduationCap,
+  Loader2,
+  Pencil,
+} from "lucide-react";
 import { ApplicationDocuments } from "@/app/components/ApplicationDocuments";
 import { ApplicationLoginModal } from "@/app/components/ApplicationLoginModal";
 import {
@@ -61,16 +68,19 @@ function programmesFor(purchase: Purchase): RankedProgrammeChoice[] {
   );
 }
 
+function schoolDisplayName(purchase: Purchase) {
+  return purchase.schoolFullName || purchase.schoolName || "Partner school";
+}
+
 export default function MyApplicationsPage() {
   const router = useRouter();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [loginOpen, setLoginOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [offerBusy, setOfferBusy] = useState(false);
+  const [loginPurchase, setLoginPurchase] = useState<Purchase | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [offerBusyId, setOfferBusyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -97,10 +107,6 @@ export default function MyApplicationsPage() {
         );
         setPurchases(next);
         setError(null);
-        setSelectedId((current) => {
-          if (current && next.some((item) => item.id === current)) return current;
-          return next[0]?.id ?? null;
-        });
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -122,19 +128,54 @@ export default function MyApplicationsPage() {
     };
   }, [router]);
 
-  const selected = useMemo(
-    () => purchases.find((item) => item.id === selectedId) || null,
-    [purchases, selectedId],
-  );
+  const toggleDetails = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
-  const respondToOffer = async (response: "accepted" | "declined") => {
-    const application = selected?.application;
+  const downloadSummary = async (purchase: Purchase) => {
+    const application = purchase.application;
+    if (!application) return;
+    setDownloadingId(purchase.id);
+    try {
+      await downloadApplicationPrintout({
+        school: {
+          name: schoolDisplayName(purchase),
+          logoSrc: purchase.schoolLogo,
+          brandColor: purchase.schoolBrandColor,
+          brandColors: purchase.schoolBrandColors,
+          phone: purchase.schoolPhone,
+          email: purchase.schoolEmail,
+          address: purchase.schoolAddress,
+        },
+        data: printoutFromDetail(
+          application.detail || {
+            applicationNumber: application.applicationNumber,
+            programmes: programmesFor(purchase),
+          },
+          programmesFor(purchase),
+        ),
+      });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const respondToOffer = async (
+    purchase: Purchase,
+    response: "accepted" | "declined",
+  ) => {
+    const application = purchase.application;
     const email =
       typeof window !== "undefined"
         ? window.localStorage.getItem("tg_user_email")
         : null;
     if (!application?.id || !email) return;
-    setOfferBusy(true);
+    setOfferBusyId(purchase.id);
     setError(null);
     try {
       const res = await fetch("/api/apply/offer-response", {
@@ -150,7 +191,7 @@ export default function MyApplicationsPage() {
       if (!res.ok) throw new Error(data.error || "Could not save your response");
       setPurchases((prev) =>
         prev.map((item) => {
-          if (item.id !== selected?.id || !item.application) return item;
+          if (item.id !== purchase.id || !item.application) return item;
           return {
             ...item,
             application: {
@@ -172,19 +213,9 @@ export default function MyApplicationsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save your response");
     } finally {
-      setOfferBusy(false);
+      setOfferBusyId(null);
     }
   };
-
-  const deadlineExpired = selected
-    ? isDeadlineCalendarExpired(selected.deadline ?? null)
-    : false;
-  const canEdit = selected
-    ? canStudentEditApplication(
-        selected.application?.status,
-        selected.deadline,
-      )
-    : false;
 
   if (loading) {
     return (
@@ -196,248 +227,226 @@ export default function MyApplicationsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-[#1E1E1E] sm:text-3xl">
+        <h1 className="text-2xl font-semibold tracking-tight text-[#1E1E1E] sm:text-3xl">
           My Applications
         </h1>
-        <p className="mt-1 text-sm text-[#555555]">
-          Open a school tab to download the official printout as a PDF, or sign
-          in to edit while the deadline is still open.
-        </p>
       </div>
 
       {error ? (
-        <div className="rounded-2xl bg-[#FEF2F2] px-4 py-3 text-sm text-[#B91C1C]">
+        <div className="rounded-2xl border border-red-100 bg-[#FEF2F2] px-4 py-3 text-sm text-[#B91C1C]">
           {error}
         </div>
       ) : null}
 
       {purchases.length === 0 ? (
-        <div className="flex flex-col items-center rounded-[28px] border border-[#E8EEF5] bg-white px-6 py-16 text-center">
+        <div className="flex flex-col items-center rounded-[28px] border border-[#E8EEF5] bg-white px-5 py-14 text-center sm:px-6 sm:py-16">
           <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EEF6FF]">
             <GraduationCap className="h-7 w-7 text-[#007AFF]" />
           </span>
           <h2 className="text-lg font-semibold text-[#1E1E1E]">
             No applications yet
           </h2>
-          <p className="mt-2 max-w-sm text-sm text-[#555555]">
+          <p className="mt-2 max-w-sm text-sm leading-relaxed text-[#555555]">
             Direct applications you start from Apply online will appear here.
           </p>
           <Link
             href="/apply"
-            className="mt-6 rounded-full bg-[#007AFF] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#0062CC]"
+            className="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-[#007AFF] px-6 text-sm font-semibold text-white transition hover:bg-[#0062CC] active:scale-[0.98]"
           >
             Apply online
           </Link>
         </div>
       ) : (
-        <div className="space-y-5">
-          <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {purchases.map((purchase) => {
-              const active = purchase.id === selectedId;
-              return (
-                <button
-                  key={purchase.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedId(purchase.id);
-                    setDetailsOpen(false);
-                  }}
-                  className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium whitespace-nowrap transition ${
-                    active
-                      ? "bg-[#007AFF] text-white shadow-sm shadow-[#007AFF]/20"
-                      : "bg-white text-[#555555] ring-1 ring-gray-200 hover:bg-gray-50 hover:text-[#007AFF]"
-                  }`}
-                >
-                  {purchase.schoolLogo ? (
-                    <span className="relative h-6 w-6 overflow-hidden rounded-full bg-white">
-                      <Image
-                        src={purchase.schoolLogo}
-                        alt=""
-                        fill
-                        className="object-contain p-0.5"
-                      />
-                    </span>
-                  ) : (
-                    <GraduationCap className="h-4 w-4" />
-                  )}
-                  {purchase.schoolName || "School"}
-                </button>
-              );
-            })}
-          </div>
+        <div className="space-y-3">
+          {purchases.map((purchase) => {
+            const deadlineExpired = isDeadlineCalendarExpired(
+              purchase.deadline ?? null,
+            );
+            const canEdit = canStudentEditApplication(
+              purchase.application?.status,
+              purchase.deadline,
+            );
+            const expanded = expandedIds.has(purchase.id);
+            const downloading = downloadingId === purchase.id;
+            const offerBusy = offerBusyId === purchase.id;
+            const hasApplication = Boolean(purchase.application);
 
-          {selected ? (
-            <article className="overflow-hidden rounded-[28px] border border-[#E8EEF5] bg-white">
-              <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:px-6">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  {selected.schoolLogo ? (
-                    <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-white ring-1 ring-[#E5E7EB]">
-                      <Image
-                        src={selected.schoolLogo}
-                        alt=""
-                        fill
-                        className="object-contain p-1"
-                      />
-                    </span>
-                  ) : (
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EEF6FF] text-[#007AFF]">
-                      <GraduationCap className="h-5 w-5" />
-                    </span>
-                  )}
-                  <div className="min-w-0">
-                    <h2 className="truncate text-base font-semibold text-[#0F172A]">
-                      {selected.schoolFullName || selected.schoolName || "Partner school"}
-                    </h2>
-                    <p className="truncate text-xs text-[#64748B]">
-                      {selected.application?.applicationNumber ||
-                        "Application not submitted yet"}
-                      {" · Deadline "}
-                      {formatSchoolDeadline(selected.deadline)}
-                      {deadlineExpired ? " (closed)" : ""}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {selected.application ? (
-                    <button
-                      type="button"
-                      disabled={downloading}
-                      onClick={() => {
-                        const application = selected.application;
-                        if (!application) return;
-                        setDownloading(true);
-                        void downloadApplicationPrintout({
-                          school: {
-                            name:
-                              selected.schoolFullName ||
-                              selected.schoolName ||
-                              "School",
-                            logoSrc: selected.schoolLogo,
-                            brandColor: selected.schoolBrandColor,
-                            brandColors: selected.schoolBrandColors,
-                            phone: selected.schoolPhone,
-                            email: selected.schoolEmail,
-                            address: selected.schoolAddress,
-                          },
-                          data: printoutFromDetail(
-                            application.detail || {
-                              applicationNumber: application.applicationNumber,
-                              programmes: programmesFor(selected),
-                            },
-                            programmesFor(selected),
-                          ),
-                        }).finally(() => setDownloading(false));
-                      }}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-semibold text-[#334155] hover:bg-[#F8FAFC] disabled:opacity-60"
-                    >
-                      {downloading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
-                      {downloading ? "Preparing PDF…" : "Download summary"}
-                    </button>
-                  ) : null}
-                  {canEdit ? (
-                    <button
-                      type="button"
-                      onClick={() => setLoginOpen(true)}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#007AFF] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0062CC]"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      {selected.application
-                        ? "Edit application"
-                        : "Continue application"}
-                    </button>
-                  ) : (
-                    <p className="self-center text-sm text-[#64748B]">
-                      {deadlineExpired
-                        ? "Editing is closed because the application deadline has passed."
-                        : "This application can no longer be edited."}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                aria-expanded={detailsOpen}
-                onClick={() => setDetailsOpen((open) => !open)}
-                className="flex w-full items-center justify-between gap-3 border-t border-[#EEF2F7] px-5 py-3 text-left text-sm font-semibold text-[#334155] hover:bg-[#F8FAFC] sm:px-6"
+            return (
+              <article
+                key={purchase.id}
+                className="overflow-hidden rounded-[24px] border border-[#E8EEF5] bg-white shadow-sm sm:rounded-[28px]"
               >
-                <span>{detailsOpen ? "Hide details" : "View application details"}</span>
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 transition-transform ${
-                    detailsOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {detailsOpen ? (
-                <div className="space-y-5 border-t border-[#EEF2F7] px-5 py-5 sm:px-6">
-                  {selected.application ? (
-                    <ApplicationStatusCard
-                      status={selected.application.status}
-                      schoolName={selected.schoolName}
-                      reviewNotes={selected.application.detail?.reviewNotes}
-                      admittedProgramme={
-                        selected.application.admittedProgramme ||
-                        selected.application.detail?.admittedProgramme
-                      }
-                      admittedProgrammeStream={
-                        selected.application.admittedProgrammeStream ||
-                        selected.application.detail?.admittedProgrammeStream
-                      }
-                      offerResponse={
-                        selected.application.offerResponse ||
-                        selected.application.detail?.offerResponse
-                      }
-                      onAcceptOffer={() => void respondToOffer("accepted")}
-                      onDeclineOffer={() => void respondToOffer("declined")}
-                      offerBusy={offerBusy}
-                      compact
-                    />
-                  ) : (
-                    <div className="rounded-[24px] border border-amber-100 bg-gradient-to-br from-[#FFFBEB] to-white p-4 sm:p-5">
-                      <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800 ring-1 ring-amber-100">
-                        Not submitted
+                <div className="px-4 py-4 sm:px-5 sm:py-5">
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    {purchase.schoolLogo ? (
+                      <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-2xl bg-[#F8FAFC] ring-1 ring-[#E8EEF5] sm:h-14 sm:w-14">
+                        <Image
+                          src={purchase.schoolLogo}
+                          alt=""
+                          fill
+                          className="object-contain p-1.5"
+                        />
                       </span>
-                      <h3 className="mt-3 text-base font-semibold text-[#0F172A]">
-                        You haven’t submitted this application yet
-                      </h3>
-                      <p className="mt-2 text-sm text-[#475569]">
-                        Sign in with your serial number and PIN to fill the form
-                        {deadlineExpired
-                          ? ". The deadline has passed, so new edits are closed."
-                          : " while the deadline is still open."}
+                    ) : (
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#EEF6FF] text-[#007AFF] sm:h-14 sm:w-14">
+                        <GraduationCap className="h-5 w-5 sm:h-6 sm:w-6" />
+                      </span>
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                            hasApplication
+                              ? "bg-[#EFF6FF] text-[#007AFF]"
+                              : "bg-[#FFF7ED] text-[#C2410C]"
+                          }`}
+                        >
+                          {hasApplication
+                            ? purchase.application?.status || "Submitted"
+                            : "Not submitted"}
+                        </span>
+                      </div>
+                      <h2 className="mt-1.5 text-[15px] font-semibold leading-snug text-[#0F172A] sm:text-base">
+                        {schoolDisplayName(purchase)}
+                      </h2>
+                      <p className="mt-1 text-xs leading-relaxed text-[#64748B] sm:text-sm">
+                        {purchase.application?.applicationNumber ||
+                          "Application not submitted yet"}
+                        <span className="mx-1.5 text-[#CBD5E1]">·</span>
+                        Deadline {formatSchoolDeadline(purchase.deadline)}
+                        {deadlineExpired ? " (closed)" : ""}
                       </p>
                     </div>
-                  )}
-                  <ApplicationDocuments
-                    documents={selected.application?.detail?.documents}
-                    applicationNumber={selected.application?.applicationNumber}
-                  />
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
+                    {hasApplication ? (
+                      <button
+                        type="button"
+                        disabled={downloading}
+                        onClick={() => void downloadSummary(purchase)}
+                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-semibold text-[#334155] transition hover:bg-[#F8FAFC] active:scale-[0.98] disabled:opacity-60 sm:w-auto"
+                      >
+                        {downloading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download className="h-4 w-4" />
+                        )}
+                        {downloading ? "Preparing PDF…" : "Download summary"}
+                      </button>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      onClick={() => toggleDetails(purchase.id)}
+                      aria-expanded={expanded}
+                      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[#E2E8F0] bg-white px-4 text-sm font-semibold text-[#334155] transition hover:bg-[#F8FAFC] active:scale-[0.98] sm:w-auto"
+                    >
+                      <FileText className="h-4 w-4" />
+                      {expanded ? "Hide summary" : "View summary"}
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${
+                          expanded ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        onClick={() => setLoginPurchase(purchase)}
+                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#007AFF] px-4 text-sm font-semibold text-white shadow-sm shadow-[#007AFF]/20 transition hover:bg-[#0062CC] active:scale-[0.98] sm:w-auto"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        {hasApplication
+                          ? "Edit application"
+                          : "Continue application"}
+                      </button>
+                    ) : (
+                      <p className="text-center text-xs leading-relaxed text-[#64748B] sm:self-center sm:text-left sm:text-sm">
+                        {deadlineExpired
+                          ? "Editing is closed because the application deadline has passed."
+                          : "This application can no longer be edited."}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              ) : null}
-            </article>
-          ) : null}
+
+                {expanded ? (
+                  <div className="space-y-5 border-t border-[#EEF2F7] bg-[#FAFBFC] px-4 py-4 sm:px-5 sm:py-5">
+                    {purchase.application ? (
+                      <ApplicationStatusCard
+                        status={purchase.application.status}
+                        schoolName={schoolDisplayName(purchase)}
+                        reviewNotes={purchase.application.detail?.reviewNotes}
+                        admittedProgramme={
+                          purchase.application.admittedProgramme ||
+                          purchase.application.detail?.admittedProgramme
+                        }
+                        admittedProgrammeStream={
+                          purchase.application.admittedProgrammeStream ||
+                          purchase.application.detail?.admittedProgrammeStream
+                        }
+                        offerResponse={
+                          purchase.application.offerResponse ||
+                          purchase.application.detail?.offerResponse
+                        }
+                        onAcceptOffer={() =>
+                          void respondToOffer(purchase, "accepted")
+                        }
+                        onDeclineOffer={() =>
+                          void respondToOffer(purchase, "declined")
+                        }
+                        offerBusy={offerBusy}
+                        compact
+                      />
+                    ) : (
+                      <div className="rounded-[24px] border border-amber-100 bg-gradient-to-br from-[#FFFBEB] to-white p-4 sm:p-5">
+                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800 ring-1 ring-amber-100">
+                          Not submitted
+                        </span>
+                        <h3 className="mt-3 text-base font-semibold text-[#0F172A]">
+                          You haven&apos;t submitted this application yet
+                        </h3>
+                        <p className="mt-2 text-sm leading-relaxed text-[#475569]">
+                          Sign in with your serial number and PIN to fill the
+                          form
+                          {deadlineExpired
+                            ? ". The deadline has passed, so new edits are closed."
+                            : " while the deadline is still open."}
+                        </p>
+                      </div>
+                    )}
+                    <ApplicationDocuments
+                      documents={purchase.application?.detail?.documents}
+                      applicationNumber={
+                        purchase.application?.applicationNumber
+                      }
+                    />
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
         </div>
       )}
 
-      {loginOpen && selected?.schoolId ? (
+      {loginPurchase?.schoolId ? (
         <ApplicationLoginModal
           school={{
-            id: selected.schoolId,
-            name: selected.schoolFullName || selected.schoolName || "School",
-            alias: selected.schoolName || null,
-            slug: selected.schoolSlug ?? null,
-            logoSrc: selected.schoolLogo ?? null,
+            id: loginPurchase.schoolId,
+            name: schoolDisplayName(loginPurchase),
+            alias: loginPurchase.schoolName || null,
+            slug: loginPurchase.schoolSlug ?? null,
+            logoSrc: loginPurchase.schoolLogo ?? null,
+            deadline: loginPurchase.deadline ?? null,
           }}
-          initialSerial={selected.voucher?.serial}
-          initialPin={selected.voucher?.pin}
-          onClose={() => setLoginOpen(false)}
+          initialSerial={loginPurchase.voucher?.serial}
+          initialPin={loginPurchase.voucher?.pin}
+          onClose={() => setLoginPurchase(null)}
         />
       ) : null}
     </div>

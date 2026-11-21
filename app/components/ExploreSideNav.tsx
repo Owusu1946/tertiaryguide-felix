@@ -256,7 +256,7 @@ export function ExploreDesktopShell({
             Explore
           </h1>
           <p className="mt-0.5 text-xs text-[#6B7280]">
-            Flyers, deadlines, and school news
+            Scholarships, deadlines, and school news
           </p>
         </div>
         {children}

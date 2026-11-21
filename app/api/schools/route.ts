@@ -59,11 +59,17 @@ export async function GET(_req: NextRequest) {
         doc.category,
       );
       const isPartner = doc.isPartner === true;
-      const price = isPartner
-        ? effectiveVoucherPrice(doc)
+      const undergraduateVoucherPrice = isPartner
+        ? effectiveVoucherPrice(doc, "undergraduate")
         : typeof doc.priceGhs === "number"
           ? doc.priceGhs
           : null;
+      const postgraduateVoucherPrice =
+        typeof doc.postgraduateVoucherPrice === "number" &&
+        Number.isFinite(doc.postgraduateVoucherPrice)
+          ? doc.postgraduateVoucherPrice
+          : null;
+      const price = undergraduateVoucherPrice;
       return {
         id: String(doc._id),
         name: doc.name,
@@ -72,6 +78,8 @@ export async function GET(_req: NextRequest) {
         logoSrc: doc.logoSrc ?? null,
         logoAlt: doc.logoAlt ?? null,
         priceGhs: price,
+        undergraduateVoucherPrice,
+        postgraduateVoucherPrice,
         deadline: doc.deadline ? doc.deadline.toISOString() : null,
         about: doc.about ?? null,
         preRequisite: doc.preRequisite ?? null,

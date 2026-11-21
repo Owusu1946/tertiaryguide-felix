@@ -459,7 +459,7 @@ export function AdsSection({
                   />
                   <span className="pointer-events-none absolute bottom-2 right-2 z-[1] flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1.5 text-[11px] font-medium text-white/95 shadow-sm backdrop-blur-sm">
                     <Maximize2 className="h-3.5 w-3.5 opacity-90" aria-hidden />
-                    View flyer
+                    View post
                   </span>
                 </button>
               )}

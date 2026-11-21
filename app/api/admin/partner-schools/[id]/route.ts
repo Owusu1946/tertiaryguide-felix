@@ -11,6 +11,7 @@ import {
 } from "../../../../../lib/admissions/schools";
 import { normalizeSlug } from "../../../../../lib/admissions/slug";
 import { normalizeBrandColor } from "../../../../../lib/brand-theme";
+import { schoolCategoriesFromRequestBody } from "../../../../../lib/schoolCategories";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -99,8 +100,27 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
           ? null
           : normalizeBrandColor(body.brandColor);
     }
+    if (
+      Array.isArray(body?.categories) ||
+      typeof body?.category === "string"
+    ) {
+      const categories = schoolCategoriesFromRequestBody(body);
+      $set.categories = [...categories];
+    }
 
-    await schoolsCollection(db).updateOne({ _id: new ObjectId(id) }, { $set });
+    const updateOp: {
+      $set: Record<string, unknown>;
+      $unset?: { category: "" };
+    } = { $set };
+    if ($set.categories) {
+      updateOp.$unset = { category: "" };
+    }
+
+    await schoolsCollection(db).updateOne(
+      { _id: new ObjectId(id) },
+      // Mongo $unset values are "" | 1 | true; SchoolDoc typing is stricter here.
+      updateOp as never,
+    );
     await invalidateSchoolsCache();
 
     const updated = await findSchoolById(db, id);

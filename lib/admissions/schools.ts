@@ -6,6 +6,7 @@ import {
   blendBrandColors,
   normalizeBrandColors,
 } from "../brand-theme";
+import { normalizeSchoolCategories } from "../schoolCategories";
 
 export function schoolsCollection(db: Db): Collection<SchoolDoc> {
   return db.collection<SchoolDoc>("schools");
@@ -43,7 +44,7 @@ export function effectiveVoucherPrice(
 }
 
 export function serializePartnerSchool(doc: SchoolDoc) {
-  const categories = doc.categories ?? (doc.category ? [doc.category] : []);
+  const categories = normalizeSchoolCategories(doc.categories, doc.category);
   const brandColors = normalizeBrandColors(doc.brandColors, doc.brandColor);
   const undergraduateVoucherPrice = effectiveVoucherPrice(doc, "undergraduate");
   const postgraduateVoucherPrice = effectiveVoucherPrice(doc, "postgraduate");
@@ -75,7 +76,8 @@ export function serializePartnerSchool(doc: SchoolDoc) {
     brandColor: blendBrandColors(brandColors),
     brandColors,
     showBlogOnMain: doc.showBlogOnMain === true,
-    categories,
+    categories: [...categories],
+    category: categories[0] ?? "Public",
     createdAt: doc.createdAt ? doc.createdAt.toISOString() : null,
   };
 }

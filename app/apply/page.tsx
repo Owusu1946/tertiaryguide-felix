@@ -36,6 +36,7 @@ import {
 import { controlClass } from "./components/FormControls";
 import { MultiStepApplicationForm } from "./components/MultiStepApplicationForm";
 import {
+  parseProgrammeLevel,
   PROGRAMME_LEVEL_LABELS,
   type ProgrammeLevel,
 } from "@/lib/admissions/programme-level";
@@ -111,7 +112,10 @@ function ApplyContent() {
   // Purchase
   const [buyerName, setBuyerName] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
-  const [programmeLevel, setProgrammeLevel] = useState<ProgrammeLevel | "">("");
+  const levelFromUrl = parseProgrammeLevel(searchParams.get("level"));
+  const [programmeLevel, setProgrammeLevel] = useState<ProgrammeLevel | "">(
+    () => levelFromUrl ?? "",
+  );
 
   // Issued voucher
   const [voucherCode, setVoucherCode] = useState("");
@@ -133,6 +137,10 @@ function ApplyContent() {
   const [authReady, setAuthReady] = useState(false);
   const [schoolQuery, setSchoolQuery] = useState("");
   const [loginSchool, setLoginSchool] = useState<PartnerSchool | null>(null);
+
+  useEffect(() => {
+    if (levelFromUrl) setProgrammeLevel(levelFromUrl);
+  }, [levelFromUrl]);
 
   useEffect(() => {
     const email = getStoredUserEmail();
@@ -258,6 +266,12 @@ function ApplyContent() {
   }, [loadingSchools, schools, searchParams]);
 
   const selectSchool = (s: PartnerSchool) => {
+    if (isDeadlineCalendarExpired(s.deadline ?? null)) {
+      setError(
+        `Applications for ${schoolLabel(s)} are closed — the school deadline has passed.`,
+      );
+      return;
+    }
     setError(null);
     setSerialNumber("");
     setVoucherCode("");
@@ -267,6 +281,12 @@ function ApplyContent() {
   const startPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!school || busy) return;
+    if (isDeadlineCalendarExpired(school.deadline ?? null)) {
+      setError(
+        "This school's application deadline has passed. New voucher purchases are not available.",
+      );
+      return;
+    }
     if (!programmeLevel) {
       setError("Please select Undergraduate or Postgraduate.");
       return;
@@ -546,13 +566,30 @@ function ApplyContent() {
                           </p>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => selectSchool(s)}
-                        className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#007AFF] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0066D6] active:scale-[0.99] md:mt-5"
-                      >
-                        Start Application
-                      </button>
+                      {expired ? (
+                        <div className="mt-4 space-y-2 md:mt-5">
+                          <button
+                            type="button"
+                            disabled
+                            aria-disabled="true"
+                            className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-full bg-[#E5E7EB] px-5 py-2.5 text-sm font-semibold text-[#6B7280]"
+                          >
+                            Applications closed
+                          </button>
+                          <p className="text-center text-xs leading-relaxed text-red-600">
+                            This school&apos;s application deadline has passed.
+                            New applications are not available.
+                          </p>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => selectSchool(s)}
+                          className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#007AFF] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0066D6] active:scale-[0.99] md:mt-5"
+                        >
+                          Start Application
+                        </button>
+                      )}
                     </article>
                   );
                 })}
@@ -587,6 +624,17 @@ function ApplyContent() {
                   }`
                 : ` · select a level to see price`}
             </p>
+            {isDeadlineCalendarExpired(school.deadline ?? null) ? (
+              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-5 text-center">
+                <p className="text-sm font-semibold text-red-700">
+                  Applications closed
+                </p>
+                <p className="mt-1 text-sm text-red-600">
+                  This school&apos;s application deadline has passed. New
+                  voucher purchases are not available.
+                </p>
+              </div>
+            ) : (
             <form onSubmit={startPayment} className="mt-6 grid gap-4 sm:grid-cols-2">
               <label className="space-y-1 text-sm sm:col-span-2">
                 <span className="font-medium">Full name</span>
@@ -634,6 +682,7 @@ function ApplyContent() {
                 Pay with Paystack
               </button>
             </form>
+            )}
             <p className="mt-4 text-center text-xs text-[#9CA3AF]">
               Already have a voucher?{" "}
               <button

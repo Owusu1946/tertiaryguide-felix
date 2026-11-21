@@ -15,6 +15,7 @@ import { SCHOOL_ADMIN_ROLE } from "../../../../lib/admissions/types";
 import { createSchoolPortalInvite } from "../../../../lib/admissions/school-portal-invite";
 import { sendSchoolPortalInviteEmail } from "../../../../lib/email";
 import { absoluteUrl } from "../../../../lib/site-url";
+import { schoolCategoriesFromRequestBody } from "../../../../lib/schoolCategories";
 
 export async function GET(req: NextRequest) {
   const auth = await requireStaff(req);
@@ -122,7 +123,7 @@ export async function POST(req: NextRequest) {
       isVerified: body?.isVerified !== false,
       showBlogOnMain: body?.showBlogOnMain === true,
       brandColor: null as string | null,
-      categories: ["Private"],
+      categories: [...schoolCategoriesFromRequestBody(body)],
       createdAt: now,
       updatedAt: now,
     };

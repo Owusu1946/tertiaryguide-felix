@@ -7,6 +7,8 @@ import {
   parseProgrammeLevel,
   PROGRAMME_LEVEL_LABELS,
 } from "../../../../../lib/admissions/programme-level";
+import { isDeadlineCalendarExpired } from "../../../../../lib/deadlines";
+import { deadlineToIso } from "../../../../../lib/admissions/edit-window";
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,6 +48,7 @@ export async function POST(req: NextRequest) {
       postgraduateVoucherPrice?: number | null;
       voucherPrice?: number | null;
       isPartner?: boolean;
+      deadline?: Date | null;
     }>("schools");
 
     const school = await schools.findOne({ _id: new ObjectId(schoolId) });
@@ -57,6 +60,15 @@ export async function POST(req: NextRequest) {
         {
           error:
             "This school uses Apply online vouchers. Purchase from the Apply page instead.",
+        },
+        { status: 400 },
+      );
+    }
+    if (isDeadlineCalendarExpired(deadlineToIso(school.deadline))) {
+      return NextResponse.json(
+        {
+          error:
+            "This school's application deadline has passed. Form purchases are not available.",
         },
         { status: 400 },
       );

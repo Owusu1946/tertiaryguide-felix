@@ -19,6 +19,11 @@ import {
 import { adminFetch } from "@/lib/admin-client";
 import { PasswordInput } from "@/app/components/PasswordInput";
 import { normalizeBrandColor } from "@/lib/brand-theme";
+import {
+  normalizeSchoolCategories,
+  SCHOOL_CATEGORIES,
+  type SchoolCategory,
+} from "@/lib/schoolCategories";
 
 type PartnerSchool = {
   id: string;
@@ -39,6 +44,8 @@ type PartnerSchool = {
   brandColor: string | null;
   showBlogOnMain: boolean;
   isVerified?: boolean;
+  categories?: string[];
+  category?: string | null;
 };
 
 const emptyForm = {
@@ -52,6 +59,7 @@ const emptyForm = {
   adminUsername: "",
   adminPassword: "",
   adminEmail: "",
+  categories: ["Private"] as SchoolCategory[],
 };
 
 function displayName(school: Pick<PartnerSchool, "name" | "alias">) {
@@ -136,6 +144,10 @@ export function AdminPartnerSchoolsSection() {
       adminUsername: "",
       adminPassword: "",
       adminEmail: "",
+      categories: normalizeSchoolCategories(
+        school.categories,
+        school.category,
+      ),
     });
     setLogoFile(null);
     setLogoPreview(null);
@@ -143,6 +155,22 @@ export function AdminPartnerSchoolsSection() {
     setMessage(null);
     setError(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const toggleCategory = (category: SchoolCategory) => {
+    setForm((f) => {
+      const current = new Set(f.categories);
+      if (current.has(category)) {
+        if (current.size <= 1) return f;
+        current.delete(category);
+      } else {
+        current.add(category);
+      }
+      return {
+        ...f,
+        categories: normalizeSchoolCategories([...current]),
+      };
+    });
   };
 
   const uploadLogoIfNeeded = async (): Promise<string | undefined> => {
@@ -184,6 +212,10 @@ export function AdminPartnerSchoolsSection() {
 
       const logoSrc = await uploadLogoIfNeeded();
 
+      if (form.categories.length === 0) {
+        throw new Error("Select at least one category.");
+      }
+
       const payload = {
         name: form.name,
         alias: form.alias || undefined,
@@ -192,6 +224,7 @@ export function AdminPartnerSchoolsSection() {
         phone: form.phone || undefined,
         showBlogOnMain: form.showBlogOnMain,
         isVerified: form.isVerified !== false,
+        categories: form.categories,
         ...(logoSrc
           ? { logoSrc, logoAlt: form.alias || form.name }
           : editingId && !existingLogoSrc && !logoFile
@@ -431,6 +464,34 @@ export function AdminPartnerSchoolsSection() {
               className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 outline-none focus:border-[#007AFF]"
             />
           </label>
+          <div className="space-y-2 md:col-span-2">
+            <p className="text-sm font-medium text-[#374151]">Categories</p>
+            <div className="flex flex-wrap gap-2">
+              {SCHOOL_CATEGORIES.map((category) => {
+                const checked = form.categories.includes(category);
+                return (
+                  <label
+                    key={category}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-medium text-[#111827] has-[:checked]:border-[#007AFF] has-[:checked]:bg-[#EFF6FF] has-[:checked]:text-[#007AFF]"
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-3.5 w-3.5 rounded border-[#D1D5DB] text-[#007AFF] focus:ring-[#007AFF]"
+                      checked={checked}
+                      onChange={() => toggleCategory(category)}
+                    />
+                    {category}
+                  </label>
+                );
+              })}
+            </div>
+            <p className="text-xs text-[#9CA3AF]">
+              Controls which All Forms tabs this school appears under (Public,
+              Private, Training College, TVET, Nursing). At least one is
+              required.
+            </p>
+          </div>
+
           <label className="flex items-start gap-2 text-sm md:col-span-2">
             <input
               type="checkbox"
@@ -603,17 +664,29 @@ export function AdminPartnerSchoolsSection() {
                               />
                             )}
                           </p>
-                          <div className="mt-0.5 flex items-center gap-1.5">
+                          <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
                             <span
-                              className="inline-block h-2.5 w-2.5 rounded-full border border-white/40"
+                              className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-white/40"
                               style={{
                                 backgroundColor: normalizeBrandColor(s.brandColor),
                               }}
                               title={normalizeBrandColor(s.brandColor)}
                             />
+                            <p
+                              className={`min-w-0 truncate text-[10px] ${
+                                selected
+                                  ? "text-white/80"
+                                  : "text-[#6B7280] group-hover:text-white/80"
+                              }`}
+                            >
+                              {normalizeSchoolCategories(
+                                s.categories,
+                                s.category,
+                              ).join(" · ")}
+                            </p>
                             {!s.isActive && (
                               <p
-                                className={`text-[10px] ${
+                                className={`shrink-0 text-[10px] ${
                                   selected ? "text-white/80" : "text-[#DC2626] group-hover:text-red-100"
                                 }`}
                               >

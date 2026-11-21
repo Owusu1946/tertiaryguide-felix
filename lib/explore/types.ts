@@ -109,7 +109,7 @@ export function postTypeLabel(type: ExplorePostType): string {
     case "deadline":
       return "Deadline";
     case "flyer":
-      return "Flyer";
+      return "Scholarship";
     case "sponsored":
       return "Sponsored";
     default:

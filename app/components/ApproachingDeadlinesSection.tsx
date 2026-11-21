@@ -10,6 +10,12 @@ import {
   isInApproachingWindow,
 } from "@/lib/deadlines";
 import { SchoolListLabel } from "@/app/components/SchoolListLabel";
+import {
+  ProgrammeLevelFilter,
+  priceForProgrammeLevel,
+  schoolMatchesProgrammeLevel,
+  type ProgrammeLevelFilterValue,
+} from "@/app/components/ProgrammeLevelFilter";
 import { catalogSchoolHref } from "@/lib/school-links";
 
 type HomeDeadlineSchool = {
@@ -20,6 +26,8 @@ type HomeDeadlineSchool = {
   logoSrc: string | null;
   logoAlt: string | null;
   priceGhs: number | null;
+  undergraduateVoucherPrice?: number | null;
+  postgraduateVoucherPrice?: number | null;
   deadline: string | null;
   isPartner?: boolean;
   isVerified?: boolean;
@@ -43,6 +51,8 @@ function formatPrice(priceGhs: number | null): string {
 export function ApproachingDeadlinesSection() {
   const [schools, setSchools] = useState<HomeDeadlineSchool[]>([]);
   const [loading, setLoading] = useState(true);
+  const [programmeLevel, setProgrammeLevel] =
+    useState<ProgrammeLevelFilterValue>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +107,7 @@ export function ApproachingDeadlinesSection() {
       seen.add(school.id);
       return true;
     })
+    .filter((school) => schoolMatchesProgrammeLevel(school, programmeLevel))
     .sort((a, b) => {
       const byDeadline = compareDeadlineForListing(a.deadline, b.deadline);
       if (byDeadline !== 0) return byDeadline;
@@ -115,6 +126,13 @@ export function ApproachingDeadlinesSection() {
         Approaching Deadlines
       </h2>
 
+      <div className="mb-3 sm:mb-4">
+        <ProgrammeLevelFilter
+          value={programmeLevel}
+          onChange={setProgrammeLevel}
+        />
+      </div>
+
       <div
         className={`grid min-w-0 ${gridCols} items-center gap-x-2 border-b border-[#E5E7EB] px-0 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-[#007AFF] sm:gap-x-4 sm:py-3 sm:text-sm md:text-base`}
         role="row"
@@ -131,53 +149,60 @@ export function ApproachingDeadlinesSection() {
           </div>
         ) : approaching.length === 0 ? (
           <div className="border-b border-[#E5E7EB] px-0 py-10 text-center text-sm text-[#374151]">
-            No application deadlines in the next {APPROACHING_DAYS} days.
+            {programmeLevel === "postgraduate"
+              ? `No postgraduate application deadlines in the next ${APPROACHING_DAYS} days.`
+              : programmeLevel === "undergraduate"
+                ? `No undergraduate application deadlines in the next ${APPROACHING_DAYS} days.`
+                : `No application deadlines in the next ${APPROACHING_DAYS} days.`}
           </div>
         ) : (
-          approaching.map((school) => (
-            <Link
-              key={school.id}
-              href={catalogSchoolHref(school)}
-              aria-label={`${school.alias?.trim() || school.name} — ${formatPrice(school.priceGhs)} — deadline ${formatDeadline(school.deadline)}`}
-              className={`group grid min-h-0 min-w-0 ${gridCols} items-center gap-x-2 border-b border-[#E5E7EB] bg-white px-0 py-3 text-inherit no-underline transition-all duration-150 [touch-action:manipulation] hover:rounded-2xl hover:bg-[#007AFF] hover:px-2.5 hover:text-white active:rounded-2xl active:bg-[#007AFF] active:px-2.5 active:text-white sm:gap-x-4 sm:py-3.5 sm:hover:px-3.5 sm:active:px-3.5`}
-            >
-              <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
-                {school.logoSrc && (
-                  <div className="relative h-5 w-5 shrink-0 rounded-sm transition group-hover:bg-white/95 group-hover:shadow-sm sm:h-7 sm:w-7 sm:group-hover:p-0.5">
-                    <Image
-                      src={school.logoSrc}
-                      alt={school.logoAlt ?? school.name}
-                      width={32}
-                      height={32}
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                )}
-                <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden sm:gap-1.5">
-                  <SchoolListLabel
-                    name={school.name}
-                    alias={school.alias}
-                    className="min-w-0 text-left text-[13px] font-medium leading-snug text-[#252525] group-hover:text-white sm:text-sm sm:break-words sm:[overflow-wrap:anywhere]"
-                  />
-                  {(school.isVerified || school.isPartner) && (
-                    <BadgeCheck
-                      className="h-3.5 w-3.5 shrink-0 text-[#007AFF] group-hover:text-white sm:h-4 sm:w-4"
-                      fill="currentColor"
-                      stroke="white"
-                    />
+          approaching.map((school) => {
+            const displayPrice = priceForProgrammeLevel(school, programmeLevel);
+            return (
+              <Link
+                key={school.id}
+                href={catalogSchoolHref(school, programmeLevel)}
+                aria-label={`${school.alias?.trim() || school.name} — ${formatPrice(displayPrice)} — deadline ${formatDeadline(school.deadline)}`}
+                className={`group grid min-h-0 min-w-0 ${gridCols} items-center gap-x-2 border-b border-[#E5E7EB] bg-white px-0 py-3 text-inherit no-underline transition-all duration-150 [touch-action:manipulation] hover:rounded-2xl hover:bg-[#007AFF] hover:px-2.5 hover:text-white active:rounded-2xl active:bg-[#007AFF] active:px-2.5 active:text-white sm:gap-x-4 sm:py-3.5 sm:hover:px-3.5 sm:active:px-3.5`}
+              >
+                <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+                  {school.logoSrc && (
+                    <div className="relative h-5 w-5 shrink-0 rounded-sm transition group-hover:bg-white/95 group-hover:shadow-sm sm:h-7 sm:w-7 sm:group-hover:p-0.5">
+                      <Image
+                        src={school.logoSrc}
+                        alt={school.logoAlt ?? school.name}
+                        width={32}
+                        height={32}
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
                   )}
+                  <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden sm:gap-1.5">
+                    <SchoolListLabel
+                      name={school.name}
+                      alias={school.alias}
+                      className="min-w-0 text-left text-[13px] font-medium leading-snug text-[#252525] group-hover:text-white sm:text-sm sm:break-words sm:[overflow-wrap:anywhere]"
+                    />
+                    {(school.isVerified || school.isPartner) && (
+                      <BadgeCheck
+                        className="h-3.5 w-3.5 shrink-0 text-[#007AFF] group-hover:text-white sm:h-4 sm:w-4"
+                        fill="currentColor"
+                        stroke="white"
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <span className="w-full text-right text-[11px] font-medium tabular-nums leading-none text-[#252525] group-hover:text-white sm:text-sm">
-                {formatPrice(school.priceGhs)}
-              </span>
+                <span className="w-full text-right text-[11px] font-medium tabular-nums leading-none text-[#252525] group-hover:text-white sm:text-sm">
+                  {formatPrice(displayPrice)}
+                </span>
 
-              <span className="w-full text-right text-[11px] font-medium tabular-nums leading-none text-[#252525] group-hover:text-white sm:text-sm">
-                {formatDeadline(school.deadline)}
-              </span>
-            </Link>
-          ))
+                <span className="w-full text-right text-[11px] font-medium tabular-nums leading-none text-[#252525] group-hover:text-white sm:text-sm">
+                  {formatDeadline(school.deadline)}
+                </span>
+              </Link>
+            );
+          })
         )}
       </div>
 

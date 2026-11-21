@@ -135,7 +135,35 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
     [],
   );
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const solutionsCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const headerRef = useRef<HTMLElement | null>(null);
+
+  const clearSolutionsCloseTimer = () => {
+    if (solutionsCloseTimerRef.current) {
+      clearTimeout(solutionsCloseTimerRef.current);
+      solutionsCloseTimerRef.current = null;
+    }
+  };
+
+  const openSolutionsMenu = () => {
+    clearSolutionsCloseTimer();
+    setSolutionsOpen(true);
+  };
+
+  const scheduleCloseSolutionsMenu = () => {
+    clearSolutionsCloseTimer();
+    solutionsCloseTimerRef.current = setTimeout(() => {
+      setSolutionsOpen(false);
+      solutionsCloseTimerRef.current = null;
+    }, 120);
+  };
+
+  const closeSolutionsMenu = () => {
+    clearSolutionsCloseTimer();
+    setSolutionsOpen(false);
+  };
   const [lastVoucher, setLastVoucher] = useState<LastVoucherStored | null>(null);
   const [lastChecker, setLastChecker] = useState<LastCheckerStored | null>(null);
   const [userName, setUserName] = useState("");
@@ -218,13 +246,29 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
     const handleClick = (event: MouseEvent) => {
       if (!dropdownRef.current) return;
       if (!dropdownRef.current.contains(event.target as Node)) {
-        setSolutionsOpen(false);
+        closeSolutionsMenu();
       }
     };
 
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeSolutionsMenu();
+    };
+
     window.addEventListener("mousedown", handleClick);
-    return () => window.removeEventListener("mousedown", handleClick);
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("keydown", handleKey);
+    };
   }, [solutionsOpen]);
+
+  useEffect(() => {
+    closeSolutionsMenu();
+  }, [pathname]);
+
+  useEffect(() => {
+    return () => clearSolutionsCloseTimer();
+  }, []);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -976,6 +1020,7 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
       <nav className="relative hidden items-center gap-8 text-sm font-medium text-[#1E1E1E] lg:gap-10 md:flex">
         <Link
           href="/"
+          onMouseEnter={closeSolutionsMenu}
           className={
             pathname === "/" && !exploreTabActive
               ? "text-[#007AFF]"
@@ -986,6 +1031,7 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
         </Link>
         <Link
           href="/explore"
+          onMouseEnter={closeSolutionsMenu}
           className={
             pathname === "/explore" || exploreTabActive
               ? "text-[#007AFF]"
@@ -994,10 +1040,18 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
         >
           Explore
         </Link>
-        <div ref={dropdownRef} className="relative">
+        <div
+          ref={dropdownRef}
+          className="relative"
+          onMouseEnter={openSolutionsMenu}
+          onMouseLeave={scheduleCloseSolutionsMenu}
+        >
           <button
             type="button"
-            onClick={() => setSolutionsOpen((prev) => !prev)}
+            onClick={() => {
+              clearSolutionsCloseTimer();
+              setSolutionsOpen((prev) => !prev);
+            }}
             aria-expanded={solutionsOpen}
             aria-haspopup="menu"
             className={`flex items-center gap-1 transition ${
@@ -1016,70 +1070,74 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
 
           {solutionsOpen && (
             <div
-              role="menu"
-              className="absolute left-1/2 top-full z-30 mt-3 hidden w-[min(36rem,calc(100vw-3rem))] -translate-x-1/2 overflow-hidden rounded-2xl border border-[#E8EEF5] bg-white shadow-[0_20px_50px_rgba(15,23,42,0.12)] md:block lg:left-0 lg:translate-x-0"
+              className="absolute left-1/2 top-full z-30 hidden w-[min(36rem,calc(100vw-3rem))] -translate-x-1/2 pt-3 md:block lg:left-0 lg:translate-x-0"
             >
-              <div className="border-b border-[#F0F4F8] bg-[#FAFCFF] px-5 py-3.5">
-                <p className="text-sm font-semibold text-[#1E1E1E]">
-                  Everything you need for admissions
-                </p>
-                <p className="mt-0.5 text-xs text-[#6B7280]">
-                  Forms, applications, programme search, and result checkers
-                </p>
-              </div>
+              <div
+                role="menu"
+                className="overflow-hidden rounded-2xl border border-[#E8EEF5] bg-white shadow-[0_20px_50px_rgba(15,23,42,0.12)]"
+              >
+                <div className="border-b border-[#F0F4F8] bg-[#FAFCFF] px-5 py-3.5">
+                  <p className="text-sm font-semibold text-[#1E1E1E]">
+                    Everything you need for admissions
+                  </p>
+                  <p className="mt-0.5 text-xs text-[#6B7280]">
+                    Forms, applications, programme search, and result checkers
+                  </p>
+                </div>
 
-              <div className="grid gap-5 p-4 sm:grid-cols-2 sm:gap-6 sm:p-5">
-                {serviceGroups.map((group) => (
-                  <div key={group.label} className="min-w-0 space-y-2">
-                    <p className="px-2 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
-                      {group.label}
-                    </p>
-                    <div className="space-y-1">
-                      {group.items.map((item) => {
-                        const Icon = item.icon;
-                        const active = item.match
-                          ? item.match(pathname)
-                          : pathname === item.href.split("?")[0];
+                <div className="grid gap-5 p-4 sm:grid-cols-2 sm:gap-6 sm:p-5">
+                  {serviceGroups.map((group) => (
+                    <div key={group.label} className="min-w-0 space-y-2">
+                      <p className="px-2 text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+                        {group.label}
+                      </p>
+                      <div className="space-y-1">
+                        {group.items.map((item) => {
+                          const Icon = item.icon;
+                          const active = item.match
+                            ? item.match(pathname)
+                            : pathname === item.href.split("?")[0];
 
-                        return (
-                          <Link
-                            key={item.name}
-                            href={item.href}
-                            role="menuitem"
-                            onClick={() => setSolutionsOpen(false)}
-                            className={`flex items-start gap-3 rounded-xl px-2.5 py-2.5 transition ${
-                              active
-                                ? "bg-[#EFF6FF] ring-1 ring-[#007AFF]/15"
-                                : "hover:bg-[#F8FAFC]"
-                            }`}
-                          >
-                            <span
-                              className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                          return (
+                            <Link
+                              key={item.name}
+                              href={item.href}
+                              role="menuitem"
+                              onClick={closeSolutionsMenu}
+                              className={`flex items-start gap-3 rounded-xl px-2.5 py-2.5 transition ${
                                 active
-                                  ? "bg-[#007AFF] text-white"
-                                  : "bg-[#EFF6FF] text-[#007AFF]"
+                                  ? "bg-[#EFF6FF] ring-1 ring-[#007AFF]/15"
+                                  : "hover:bg-[#F8FAFC]"
                               }`}
                             >
-                              <Icon className="h-4 w-4" />
-                            </span>
-                            <span className="min-w-0 pt-0.5">
                               <span
-                                className={`block text-sm font-semibold leading-snug ${
-                                  active ? "text-[#007AFF]" : "text-[#1E1E1E]"
+                                className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                                  active
+                                    ? "bg-[#007AFF] text-white"
+                                    : "bg-[#EFF6FF] text-[#007AFF]"
                                 }`}
                               >
-                                {item.name}
+                                <Icon className="h-4 w-4" />
                               </span>
-                              <span className="mt-0.5 block text-xs leading-relaxed text-[#6B7280]">
-                                {item.description}
+                              <span className="min-w-0 pt-0.5">
+                                <span
+                                  className={`block text-sm font-semibold leading-snug ${
+                                    active ? "text-[#007AFF]" : "text-[#1E1E1E]"
+                                  }`}
+                                >
+                                  {item.name}
+                                </span>
+                                <span className="mt-0.5 block text-xs leading-relaxed text-[#6B7280]">
+                                  {item.description}
+                                </span>
                               </span>
-                            </span>
-                          </Link>
-                        );
-                      })}
+                            </Link>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -1087,6 +1145,7 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
 
         <Link
           href="/about"
+          onMouseEnter={closeSolutionsMenu}
           className={
             pathname === "/about"
               ? "text-[#007AFF]"
@@ -1097,6 +1156,7 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
         </Link>
         <Link
           href="/blog"
+          onMouseEnter={closeSolutionsMenu}
           className={
             pathname === "/blog" || pathname.startsWith("/blog/")
               ? "text-[#007AFF]"
@@ -1107,6 +1167,7 @@ export function Header({ hideAuth, showUserControls }: { hideAuth?: boolean; sho
         </Link>
         <Link
           href="/faqs"
+          onMouseEnter={closeSolutionsMenu}
           className={
             pathname === "/faqs"
               ? "text-[#007AFF]"

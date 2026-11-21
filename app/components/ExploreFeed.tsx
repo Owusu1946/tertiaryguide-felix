@@ -716,8 +716,8 @@ export function ExploreFeed({
                 Opportunities & resources
               </h2>
               <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-[#666] md:text-base">
-                Updates from schools, flyers, deadlines, and sponsored tips — all
-                in one place.
+                Updates from schools, scholarships, deadlines, and sponsored
+                tips — all in one place.
               </p>
             </div>
           )}
@@ -732,7 +732,7 @@ export function ExploreFeed({
                 Latest updates
               </h2>
               <p className="text-xs text-[#64748B]">
-                Flyers, deadlines, and school news
+                Scholarships, deadlines, and school news
               </p>
             </div>
           )}

@@ -13,6 +13,8 @@ import {
   parseProgrammeLevel,
   PROGRAMME_LEVEL_LABELS,
 } from "../../../../../lib/admissions/programme-level";
+import { isDeadlineCalendarExpired } from "../../../../../lib/deadlines";
+import { deadlineToIso } from "../../../../../lib/admissions/edit-window";
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,6 +48,15 @@ export async function POST(req: NextRequest) {
     const school = await findSchoolById(db, schoolId);
     if (!school || !school.isPartner || school.isActive === false) {
       return NextResponse.json({ error: "School not available" }, { status: 404 });
+    }
+    if (isDeadlineCalendarExpired(deadlineToIso(school.deadline))) {
+      return NextResponse.json(
+        {
+          error:
+            "This school's application deadline has passed. New voucher purchases are not available.",
+        },
+        { status: 400 },
+      );
     }
     if (school.requiresVoucher === false) {
       return NextResponse.json(

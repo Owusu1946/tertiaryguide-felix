@@ -36,10 +36,6 @@ export default function DashboardAssistancePage() {
         <h1 className="text-3xl font-semibold leading-tight text-[#1E1E1E]">
           Assistance
         </h1>
-        <p className="mt-1 text-sm text-[#555555]">
-          Choose how our team should reach you—we&apos;ll follow up as soon as we
-          can.
-        </p>
       </div>
       <AssistanceRequestForm
         variant="page"

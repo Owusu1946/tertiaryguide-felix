@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, BadgeCheck, Loader2 } from "lucide-react";
 import { Header } from "@/app/components/Header";
 import { Footer } from "@/app/components/Footer";
@@ -18,6 +18,7 @@ import {
   getStoredUserName,
 } from "@/lib/client-auth";
 import {
+  parseProgrammeLevel,
   PROGRAMME_LEVEL_LABELS,
   type ProgrammeLevel,
 } from "@/lib/admissions/programme-level";
@@ -51,23 +52,31 @@ function formatDeadline(deadline: string | null): string {
   });
 }
 
-export default function PartnerSchoolDetailPage() {
+function PartnerSchoolDetailContent() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const slug = params.slug;
+  const levelFromUrl = parseProgrammeLevel(searchParams.get("level"));
 
   const [school, setSchool] = useState<PartnerSchool | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [voucherFullName, setVoucherFullName] = useState("");
   const [voucherEmail, setVoucherEmail] = useState("");
-  const [programmeLevel, setProgrammeLevel] = useState<ProgrammeLevel | "">("");
+  const [programmeLevel, setProgrammeLevel] = useState<ProgrammeLevel | "">(
+    () => levelFromUrl ?? "",
+  );
   const [voucherSubmitting, setVoucherSubmitting] = useState(false);
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [showCutoffModal, setShowCutoffModal] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (levelFromUrl) setProgrammeLevel(levelFromUrl);
+  }, [levelFromUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -587,12 +596,30 @@ export default function PartnerSchoolDetailPage() {
         onClose={() => setShowAuthModal(false)}
         redirectPath={
           school?.slug
-            ? `/apply/school/${encodeURIComponent(school.slug)}`
-            : "/apply"
+            ? levelFromUrl
+              ? `/apply/school/${encodeURIComponent(school.slug)}?level=${levelFromUrl}`
+              : `/apply/school/${encodeURIComponent(school.slug)}`
+            : levelFromUrl
+              ? `/apply?level=${levelFromUrl}`
+              : "/apply"
         }
       />
 
       <Footer />
     </div>
+  );
+}
+
+export default function PartnerSchoolDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-white">
+          <Loader2 className="h-10 w-10 animate-spin text-[#007AFF]" />
+        </div>
+      }
+    >
+      <PartnerSchoolDetailContent />
+    </Suspense>
   );
 }
